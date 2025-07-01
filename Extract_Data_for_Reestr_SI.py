@@ -9,7 +9,7 @@ from tkinterdnd2 import DND_FILES, TkinterDnD
 import shutil
 
 # Путь к файлу-шаблону
-TEMPLATE_FILE_PATH = rf'\\192.168.34.9\линвит\ПОЛЬЗОВАТЕЛИ\USER49\Реестры применения\Реестр применения СИ 2024 Образец.xlsx'
+TEMPLATE_FILE_PATH = rf'\\192.168.34.9\линвит\ПОЛЬЗОВАТЕЛИ\USER49\_Реестры применения СИ\Образец\Реестр применения СИ образец.xlsx'
 
 # Функция для форматирования даты
 def format_date(date_value):
