@@ -32,7 +32,7 @@ def process_files(action):
     """
     Обрабатывает выбранные файлы, используя заранее известный индекс листа.
     """
-    global cell_value1, cell_value2, cell_value3, cell_value4, cell_value4_1, cell_value5, cell_value6, cell_value7, cell_value8, cell_value10, cell_value10_1, cell_value9, cell_value12, cell_value13, cell_value14, cell_value11, cell_value15, cell_value16, cell_value17
+    global cell_value1, cell_value2, cell_value3, cell_value4, cell_value4_1, cell_value5, cell_value6, cell_value7, cell_value8, cell_value10, cell_value10_1, cell_value9, cell_value12, cell_value13, cell_value14, cell_value11, cell_value15, cell_value16, cell_value17, cell_value18, cell_value19, cell_value20, cell_value21, cell_value23, cell_value22
     update_status("Начало обработки файлов...")  # Обновление статуса
 
     if not file_paths:
@@ -41,7 +41,14 @@ def process_files(action):
         return
 
     if action == "existing":
-        save_path = filedialog.askopenfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
+        save_path = filedialog.askopenfilename(
+            filetypes=[
+                ("Excel files", "*.xlsx"),
+                ("Excel files with macros", "*.xlsm"),
+                ("All files", "*.*")
+            ],
+            title="Выберите Excel файл"
+        )
         if not save_path:
             update_status("Обработка прервана пользователем.")
             return
@@ -99,6 +106,11 @@ def process_files(action):
             sheet2 = workbook['Протокол']
             sheet3 = workbook['Записи']
 
+            sheet4 = workbook['ПКЭ']
+
+            sheet5 = workbook['3ф-4пр']
+
+
             for i in range(0, len(worksheets)):
                 if worksheets[i] == 'Протокол-3пр':
                     sheet2 = workbook['Протокол-3пр']
@@ -153,6 +165,14 @@ def process_files(action):
                 cell_value5 = format_date(sheet2['M25'].value)  # Начало испытаний
                 cell_value6 = format_date(sheet2['M26'].value)  # Окончание испытаний
 
+                cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
+                cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+
+                cell_value20 = sheet5['BE16'].value  # δU(−)I, %
+                cell_value21 = sheet5['BE17'].value  # δU(+)I, %
+                cell_value22 = sheet5['BE26'].value  # δU(−)II, %
+                cell_value23 = sheet5['BE27'].value  # δU(+)II, %
+
 
             elif 'Тип СИ' in Check3:
                 cell_value2 = sheet2['AG31'].value  # Тип СИ ПКЭ
@@ -171,6 +191,13 @@ def process_files(action):
                 cell_value5 = format_date(sheet2['M22'].value)  # Начало испытаний
                 cell_value6 = format_date(sheet2['M23'].value)  # Окончание испытаний
 
+                cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
+                cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+
+                cell_value20 = sheet5['BE16'].value  # δU(−)I, %
+                cell_value21 = sheet5['BE17'].value  # δU(+)I, %
+                cell_value22 = sheet5['BE26'].value  # δU(−)II, %
+                cell_value23 = sheet5['BE27'].value  # δU(+)II, %
 
 
             elif 'Тип СИ' in Check2:
@@ -190,6 +217,14 @@ def process_files(action):
                 cell_value5 = format_date(sheet2['M24'].value)  # Начало испытаний
                 cell_value6 = format_date(sheet2['M25'].value)  # Окончание испытаний
 
+                cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
+                cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+
+                cell_value20 = sheet5['BE16'].value  # δU(−)I, %
+                cell_value21 = sheet5['BE17'].value  # δU(+)I, %
+                cell_value22 = sheet5['BE26'].value  # δU(−)II, %
+                cell_value23 = sheet5['BE27'].value  # δU(+)II, %
+
 
             elif 'Тип СИ' in Check1:
                 cell_value2 = sheet2['AG35'].value  # Тип СИ ПКЭ
@@ -207,6 +242,14 @@ def process_files(action):
 
                 cell_value5 = format_date(sheet2['M26'].value)  # Начало испытаний
                 cell_value6 = format_date(sheet2['M27'].value)  # Окончание испытаний
+
+                cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
+                cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+
+                cell_value20 = sheet5['BE16'].value  # δU(−)I, %
+                cell_value21 = sheet5['BE17'].value  # δU(+)I, %
+                cell_value22 = sheet5['BE26'].value  # δU(−)II, %
+                cell_value23 = sheet5['BE27'].value  # δU(+)II, %
 
 
             if cell_value4_1 is not None:
@@ -234,7 +277,14 @@ def process_files(action):
             output_sheet[f'N{row_index}'] = cell_value15  # Поверка СИ
             output_sheet[f'O{row_index}'] = cell_value16  # dU(-)
             output_sheet[f'P{row_index}'] = cell_value17  # dU(+)
-            output_sheet[f'R{row_index}'] = Protocol_Num  # Порядковый номер протокола
+            output_sheet[f'Q{row_index}'] = cell_value18  # Начало интервала наибольших нагрузок
+            output_sheet[f'R{row_index}'] = cell_value19  # Конец интервала наибольших нагрузок
+            output_sheet[f'S{row_index}'] = cell_value20  # δU(−)I, %
+            output_sheet[f'T{row_index}'] = cell_value21  # δU(+)I, %
+            output_sheet[f'U{row_index}'] = cell_value22  # δU(−)II, %
+            output_sheet[f'V{row_index}'] = cell_value23  # δU(+)II, %
+
+            output_sheet[f'X{row_index}'] = Protocol_Num  # Порядковый номер протокола
 
             row_index += 1
 
