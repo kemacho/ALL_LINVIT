@@ -102,154 +102,221 @@ def process_files(action):
             workbook = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
             worksheets = workbook.sheetnames
 
-            sheet1 = workbook['Титул']
-            sheet2 = workbook['Протокол']
-            sheet3 = workbook['Записи']
-            sheet4 = workbook['ПКЭ']
-            sheet5 = workbook['3ф-4пр']
+            # Проверка существования всех листов
+            sheet1 = workbook['Титул'] if 'Титул' in workbook.sheetnames else None
+            sheet2 = workbook['Протокол'] if 'Протокол' in workbook.sheetnames else None
+            sheet3 = workbook['Записи'] if 'Записи' in workbook.sheetnames else None
+            sheet4 = workbook['ПКЭ'] if 'ПКЭ' in workbook.sheetnames else None
+            sheet5 = workbook['3ф-4пр'] if '3ф-4пр' in workbook.sheetnames else None
 
+            # Проверка альтернативных названий листов
+            if sheet2 is None and 'Протокол-3пр' in workbook.sheetnames:
+                sheet2 = workbook['Протокол-3пр']
 
-            for i in range(0, len(worksheets)):
-                if worksheets[i] == 'Протокол-3пр' and sheet2 is None:
-                    sheet2 = workbook['Протокол-3пр']
+            if sheet3 is None and 'Записи-3пр' in workbook.sheetnames:
+                sheet3 = workbook['Записи-3пр']
 
-                if worksheets[i] == 'Записи-3пр' and sheet3 is None:
-                    sheet3 = workbook['Записи-3пр']
+            # Установка значений по умолчанию для отсутствующих листов
+            missing_sheets = []
+
+            if sheet1 is None:
+                missing_sheets.append("Титул")
+                cell_value4 = "---"
+                cell_value4_1 = "---"
+                cell_value9 = "---"
+                cell_value12 = "---"
+
+            if sheet2 is None:
+                missing_sheets.append("Протокол")
+                cell_value2 = "---"
+                cell_value1 = "---"
+                cell_value14 = "---"
+                cell_value10 = "---"
+                cell_value11 = "---"
+                cell_value15 = "---"
+                cell_value5 = "---"
+                cell_value6 = "---"
+                cell_value16 = "---"
+                cell_value17 = "---"
+
+            if sheet3 is None:
+                missing_sheets.append("Записи")
+                cell_value8 = "---"
+                cell_value13 = "---"
+
+            if sheet4 is None:
+                missing_sheets.append("ПКЭ")
+                cell_value18 = "---"
+                cell_value19 = "---"
+
+            if sheet5 is None:
+                missing_sheets.append("3ф-4пр")
+                cell_value20 = "---"
+                cell_value21 = "---"
+                cell_value22 = "---"
+                cell_value23 = "---"
+
+            # Вывод предупреждения об отсутствующих листах
+            if missing_sheets:
+                messagebox.showwarning("Предупреждение",
+                                       f"В файле {os.path.basename(file_path)} отсутствуют листы: {', '.join(missing_sheets)}. "
+                                       "Соответствующие данные будут заменены на '---'.")
 
             # Поиск ячейки с "отрицательное отклонение напряжения"
             cell_value16 = None  # Значение по умолчанию
             cell_value17 = None
             search_text = "отрицательное отклонение напряжения"
 
-            for row in range(70, 90):  # Поиск в строках
-                for col in range(8, 10):  # Проверяем столбцы
-                    cell = sheet2.cell(row=row, column=col)
-                    if cell.value and search_text in str(cell.value):
-                        # Нашли ячейку
-                        cell_value16 = sheet2.cell(row=row + 1, column=11).value # dU -
-                        cell_value17 = sheet2.cell(row=row + 3, column=11).value # dU +
+            if sheet2 is not None:
+                for row in range(70, 90):  # Поиск в строках
+                    for col in range(8, 10):  # Проверяем столбцы
+                        cell = sheet2.cell(row=row, column=col)
+                        if cell.value and search_text in str(cell.value):
+                            # Нашли ячейку
+                            cell_value16 = sheet2.cell(row=row + 1, column=11).value # dU -
+                            cell_value17 = sheet2.cell(row=row + 3, column=11).value # dU +
+                            break
+                    if cell_value16 is not None:
                         break
-                if cell_value16 is not None:
-                    break
 
-            cell_value8 = sheet3['AK6'].value  # Место в схеме
-            cell_value13 = sheet3['U9'].value  # Центр питания
+            if sheet3 is not None:
+                cell_value8 = sheet3['AK6'].value  # Место в схеме
+                cell_value13 = sheet3['U9'].value  # Центр питания
 
-            print(cell_value8, cell_value13)
 
             if cell_value8 is None:
                 cell_value8 = '-'
             if cell_value13 is None:
                 cell_value13 = '-'
 
-            Check1 = str(sheet2['AG34'].value)
-            Check2 = str(sheet2['AG32'].value)
-            Check3 = str(sheet2['AG30'].value)
-            Check4 = str(sheet2['AG33'].value)
+            if sheet2 is not None:
+                Check1 = str(sheet2['AG34'].value)
+                Check2 = str(sheet2['AG32'].value)
+                Check3 = str(sheet2['AG30'].value)
+                Check4 = str(sheet2['AG33'].value)
 
 
             if 'Тип СИ' in Check4:
-                cell_value2 = sheet2['AG34'].value  # Тип СИ ПКЭ
-                cell_value1 = sheet2['BE34'].value  # Заводской номер СИ ПКЭ
-                cell_value14 = sheet2['CD34'].value  # Поверка СИ ПКЭ
+                if sheet2 is not None:
+                    cell_value2 = sheet2['AG34'].value  # Тип СИ ПКЭ
+                    cell_value1 = sheet2['BE34'].value  # Заводской номер СИ ПКЭ
+                    cell_value14 = sheet2['CD34'].value  # Поверка СИ ПКЭ
 
-                cell_value10 = sheet2['AG35'].value  # Тип СИ
-                cell_value11 = sheet2['BE35'].value  # Заводской номер СИ
-                cell_value15 = sheet2['CD35'].value  # Поверка СИ
+                    cell_value10 = sheet2['AG35'].value  # Тип СИ
+                    cell_value11 = sheet2['BE35'].value  # Заводской номер СИ
+                    cell_value15 = sheet2['CD35'].value  # Поверка СИ
 
-                cell_value4 = sheet1['A32'].value  # Электрические сети
-                cell_value4_1 = sheet1['A33'].value  # Электрические сети
-                cell_value9 = sheet1['BC26'].value  # Номер протокола
-                cell_value12 = format_date(sheet1['BU24'].value)  # Дата протокола
+                    cell_value5 = format_date(sheet2['M25'].value)  # Начало испытаний
+                    cell_value6 = format_date(sheet2['M26'].value)  # Окончание испытаний
 
-                cell_value5 = format_date(sheet2['M25'].value)  # Начало испытаний
-                cell_value6 = format_date(sheet2['M26'].value)  # Окончание испытаний
+                if sheet1 is not None:
+                    cell_value4 = sheet1['A32'].value  # Электрические сети
+                    cell_value4_1 = sheet1['A33'].value  # Электрические сети
+                    cell_value9 = sheet1['BC26'].value  # Номер протокола
+                    cell_value12 = format_date(sheet1['BU24'].value)  # Дата протокола
 
-                cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
-                cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+                if sheet4 is not None:
+                    cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
+                    cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
 
-                cell_value20 = sheet5['BE16'].value  # δU(−)I, %
-                cell_value21 = sheet5['BE17'].value  # δU(+)I, %
-                cell_value22 = sheet5['BE26'].value  # δU(−)II, %
-                cell_value23 = sheet5['BE27'].value  # δU(+)II, %
+                if sheet5 is not None:
+                    cell_value20 = sheet5['BE16'].value  # δU(−)I, %
+                    cell_value21 = sheet5['BE17'].value  # δU(+)I, %
+                    cell_value22 = sheet5['BE26'].value  # δU(−)II, %
+                    cell_value23 = sheet5['BE27'].value  # δU(+)II, %
 
 
             elif 'Тип СИ' in Check3:
-                cell_value2 = sheet2['AG31'].value  # Тип СИ ПКЭ
-                cell_value1 = sheet2['BE31'].value  # Заводской номер СИ ПКЭ
-                cell_value14 = sheet2['CD31'].value  # Поверка СИ ПКЭ
 
-                cell_value10 = sheet2['AG32'].value  # Тип СИ
-                cell_value11 = sheet2['BE32'].value  # Заводской номер СИ
-                cell_value15 = sheet2['CD32'].value  # Поверка СИ
+                if sheet2 is not None:
+                    cell_value2 = sheet2['AG31'].value  # Тип СИ ПКЭ
+                    cell_value1 = sheet2['BE31'].value  # Заводской номер СИ ПКЭ
+                    cell_value14 = sheet2['CD31'].value  # Поверка СИ ПКЭ
 
-                cell_value4 = sheet1['A35'].value  # Электрические сети
-                cell_value4_1 = sheet1['A36'].value  # Электрические сети
-                cell_value9 = sheet1['BC29'].value  # Номер протокола
-                cell_value12 = format_date(sheet1['BU24'].value)  # Дата протокола
+                    cell_value10 = sheet2['AG32'].value  # Тип СИ
+                    cell_value11 = sheet2['BE32'].value  # Заводской номер СИ
+                    cell_value15 = sheet2['CD32'].value  # Поверка СИ
 
-                cell_value5 = format_date(sheet2['M22'].value)  # Начало испытаний
-                cell_value6 = format_date(sheet2['M23'].value)  # Окончание испытаний
+                    cell_value5 = format_date(sheet2['M22'].value)  # Начало испытаний
+                    cell_value6 = format_date(sheet2['M23'].value)  # Окончание испытаний
 
-                cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
-                cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+                if sheet1 is not None:
+                    cell_value4 = sheet1['A35'].value  # Электрические сети
+                    cell_value4_1 = sheet1['A36'].value  # Электрические сети
+                    cell_value9 = sheet1['BC29'].value  # Номер протокола
+                    cell_value12 = format_date(sheet1['BU24'].value)  # Дата протокола
 
-                cell_value20 = sheet5['BE16'].value  # δU(−)I, %
-                cell_value21 = sheet5['BE17'].value  # δU(+)I, %
-                cell_value22 = sheet5['BE26'].value  # δU(−)II, %
-                cell_value23 = sheet5['BE27'].value  # δU(+)II, %
+                if sheet4 is not None:
+                    cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
+                    cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+
+                if sheet5 is not None:
+                    cell_value20 = sheet5['BE16'].value  # δU(−)I, %
+                    cell_value21 = sheet5['BE17'].value  # δU(+)I, %
+                    cell_value22 = sheet5['BE26'].value  # δU(−)II, %
+                    cell_value23 = sheet5['BE27'].value  # δU(+)II, %
 
 
             elif 'Тип СИ' in Check2:
-                cell_value2 = sheet2['AG33'].value  # Тип СИ ПКЭ
-                cell_value1 = sheet2['BE33'].value  # Заводской номер СИ ПКЭ
-                cell_value14 = sheet2['CD33'].value  # Поверка СИ ПКЭ
 
-                cell_value10 = sheet2['AG34'].value  # Тип СИ
-                cell_value11 = sheet2['BE34'].value  # Заводской номер СИ
-                cell_value15 = sheet2['CD34'].value  # Поверка СИ
+                if sheet2 is not None:
+                    cell_value2 = sheet2['AG33'].value  # Тип СИ ПКЭ
+                    cell_value1 = sheet2['BE33'].value  # Заводской номер СИ ПКЭ
+                    cell_value14 = sheet2['CD33'].value  # Поверка СИ ПКЭ
 
-                cell_value4 = sheet1['A35'].value  # Электрические сети
-                cell_value4_1 = sheet1['A36'].value  # Электрические сети
-                cell_value9 = sheet1['BC29'].value  # Номер протокола
-                cell_value12 = format_date(sheet1['BU24'].value)  # Дата протокола
+                    cell_value10 = sheet2['AG34'].value  # Тип СИ
+                    cell_value11 = sheet2['BE34'].value  # Заводской номер СИ
+                    cell_value15 = sheet2['CD34'].value  # Поверка СИ
 
-                cell_value5 = format_date(sheet2['M24'].value)  # Начало испытаний
-                cell_value6 = format_date(sheet2['M25'].value)  # Окончание испытаний
+                    cell_value5 = format_date(sheet2['M24'].value)  # Начало испытаний
+                    cell_value6 = format_date(sheet2['M25'].value)  # Окончание испытаний
 
-                cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
-                cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+                if sheet1 is not None:
+                    cell_value4 = sheet1['A35'].value  # Электрические сети
+                    cell_value4_1 = sheet1['A36'].value  # Электрические сети
+                    cell_value9 = sheet1['BC29'].value  # Номер протокола
+                    cell_value12 = format_date(sheet1['BU24'].value)  # Дата протокола
 
-                cell_value20 = sheet5['BE16'].value  # δU(−)I, %
-                cell_value21 = sheet5['BE17'].value  # δU(+)I, %
-                cell_value22 = sheet5['BE26'].value  # δU(−)II, %
-                cell_value23 = sheet5['BE27'].value  # δU(+)II, %
+                if sheet4 is not None:
+                    cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
+                    cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+
+                if sheet5 is not None:
+                    cell_value20 = sheet5['BE16'].value  # δU(−)I, %
+                    cell_value21 = sheet5['BE17'].value  # δU(+)I, %
+                    cell_value22 = sheet5['BE26'].value  # δU(−)II, %
+                    cell_value23 = sheet5['BE27'].value  # δU(+)II, %
 
 
             elif 'Тип СИ' in Check1:
-                cell_value2 = sheet2['AG35'].value  # Тип СИ ПКЭ
-                cell_value1 = sheet2['BE35'].value  # Заводской номер СИ ПКЭ
-                cell_value14 = sheet2['CD35'].value  # Поверка СИ ПКЭ
 
-                cell_value10 = sheet2['AG36'].value  # Тип СИ
-                cell_value11 = sheet2['BE36'].value  # Заводской номер СИ
-                cell_value15 = sheet2['CD36'].value  # Поверка СИ
+                if sheet2 is not None:
+                    cell_value2 = sheet2['AG35'].value  # Тип СИ ПКЭ
+                    cell_value1 = sheet2['BE35'].value  # Заводской номер СИ ПКЭ
+                    cell_value14 = sheet2['CD35'].value  # Поверка СИ ПКЭ
 
-                cell_value4 = sheet1['A35'].value  # Электрические сети
-                cell_value4_1 = sheet1['A36'].value  # Электрические сети
-                cell_value9 = sheet1['BC29'].value  # Номер протокола
-                cell_value12 = format_date(sheet1['BU24'].value)  # Дата протокола
+                    cell_value10 = sheet2['AG36'].value  # Тип СИ
+                    cell_value11 = sheet2['BE36'].value  # Заводской номер СИ
+                    cell_value15 = sheet2['CD36'].value  # Поверка СИ
 
-                cell_value5 = format_date(sheet2['M26'].value)  # Начало испытаний
-                cell_value6 = format_date(sheet2['M27'].value)  # Окончание испытаний
+                    cell_value5 = format_date(sheet2['M26'].value)  # Начало испытаний
+                    cell_value6 = format_date(sheet2['M27'].value)  # Окончание испытаний
 
-                cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
-                cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+                if sheet1 is not None:
+                    cell_value4 = sheet1['A35'].value  # Электрические сети
+                    cell_value4_1 = sheet1['A36'].value  # Электрические сети
+                    cell_value9 = sheet1['BC29'].value  # Номер протокола
+                    cell_value12 = format_date(sheet1['BU24'].value)  # Дата протокола
 
-                cell_value20 = sheet5['BE16'].value  # δU(−)I, %
-                cell_value21 = sheet5['BE17'].value  # δU(+)I, %
-                cell_value22 = sheet5['BE26'].value  # δU(−)II, %
-                cell_value23 = sheet5['BE27'].value  # δU(+)II, %
+                if sheet4 is not None:
+                    cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
+                    cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+
+                if sheet5 is not None:
+                    cell_value20 = sheet5['BE16'].value  # δU(−)I, %
+                    cell_value21 = sheet5['BE17'].value  # δU(+)I, %
+                    cell_value22 = sheet5['BE26'].value  # δU(−)II, %
+                    cell_value23 = sheet5['BE27'].value  # δU(+)II, %
 
 
             if cell_value4_1 is not None:
