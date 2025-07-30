@@ -105,17 +105,15 @@ def process_files(action):
             sheet1 = workbook['Титул']
             sheet2 = workbook['Протокол']
             sheet3 = workbook['Записи']
-
             sheet4 = workbook['ПКЭ']
-
             sheet5 = workbook['3ф-4пр']
 
 
             for i in range(0, len(worksheets)):
-                if worksheets[i] == 'Протокол-3пр':
+                if worksheets[i] == 'Протокол-3пр' and sheet2 is None:
                     sheet2 = workbook['Протокол-3пр']
-            for i in range(0, len(worksheets)):
-                if worksheets[i] == 'Записи-3пр':
+
+                if worksheets[i] == 'Записи-3пр' and sheet3 is None:
                     sheet3 = workbook['Записи-3пр']
 
             # Поиск ячейки с "отрицательное отклонение напряжения"
@@ -136,6 +134,8 @@ def process_files(action):
 
             cell_value8 = sheet3['AK6'].value  # Место в схеме
             cell_value13 = sheet3['U9'].value  # Центр питания
+
+            print(cell_value8, cell_value13)
 
             if cell_value8 is None:
                 cell_value8 = '-'
@@ -262,29 +262,32 @@ def process_files(action):
                 Protocol_Num = '-'
 
             # Запись данных в первый лист
-            output_sheet[f'B{row_index}'] = cell_value4  # Электрические сети
-            output_sheet[f'C{row_index}'] = cell_value9  # Номер протокола
-            output_sheet[f'D{row_index}'] = cell_value12  # Дата протокола
-            output_sheet[f'E{row_index}'] = cell_value13  # Центр питания
-            output_sheet[f'F{row_index}'] = cell_value8  # Место в схеме
-            output_sheet[f'G{row_index}'] = cell_value5  # Дата начала испытаний
-            output_sheet[f'H{row_index}'] = cell_value6  # Дата окончания испытаний
-            output_sheet[f'I{row_index}'] = cell_value2  # Тип СИ ПКЭ
-            output_sheet[f'J{row_index}'] = cell_value1  # Заводской № ПКЭ
-            output_sheet[f'K{row_index}'] = cell_value14  # Поверка СИ ПКЭ
-            output_sheet[f'L{row_index}'] = cell_value10  # Тип СИ
-            output_sheet[f'M{row_index}'] = cell_value11  # Заводской № СИ
-            output_sheet[f'N{row_index}'] = cell_value15  # Поверка СИ
-            output_sheet[f'O{row_index}'] = cell_value16  # dU(-)
-            output_sheet[f'P{row_index}'] = cell_value17  # dU(+)
-            output_sheet[f'Q{row_index}'] = cell_value18  # Начало интервала наибольших нагрузок
-            output_sheet[f'R{row_index}'] = cell_value19  # Конец интервала наибольших нагрузок
-            output_sheet[f'S{row_index}'] = cell_value20  # δU(−)I, %
-            output_sheet[f'T{row_index}'] = cell_value21  # δU(+)I, %
-            output_sheet[f'U{row_index}'] = cell_value22  # δU(−)II, %
-            output_sheet[f'V{row_index}'] = cell_value23  # δU(+)II, %
+            output_sheet[f'D{row_index}'] = cell_value4  # Электрические сети
+            output_sheet[f'E{row_index}'] = cell_value9  # Номер протокола
+            output_sheet[f'G{row_index}'] = cell_value12  # Дата протокола
+            output_sheet[f'H{row_index}'] = cell_value13  # Центр питания
+            output_sheet[f'I{row_index}'] = cell_value8  # Место в схеме
+            output_sheet[f'J{row_index}'] = cell_value5  # Дата начала испытаний
+            output_sheet[f'K{row_index}'] = cell_value6  # Дата окончания испытаний
+            output_sheet[f'L{row_index}'] = cell_value2  # Тип СИ ПКЭ
+            output_sheet[f'M{row_index}'] = cell_value1  # Заводской № ПКЭ
+            output_sheet[f'N{row_index}'] = cell_value14  # Поверка СИ ПКЭ
+            output_sheet[f'O{row_index}'] = cell_value10  # Тип СИ
+            output_sheet[f'P{row_index}'] = cell_value11  # Заводской № СИ
+            output_sheet[f'Q{row_index}'] = cell_value15  # Поверка СИ
+            output_sheet[f'R{row_index}'] = cell_value16  # dU(-)
+            output_sheet[f'S{row_index}'] = cell_value17  # dU(+)
+            output_sheet[f'T{row_index}'] = cell_value18  # Начало интервала наибольших нагрузок 1
+            output_sheet[f'U{row_index}'] = cell_value19  # Конец интервала наибольших нагрузок 1
 
-            output_sheet[f'X{row_index}'] = Protocol_Num  # Порядковый номер протокола
+
+            output_sheet[f'X{row_index}'] = cell_value21  # δU(+)I, %
+            output_sheet[f'Y{row_index}'] = cell_value20  # δU(−)I, %
+            output_sheet[f'Z{row_index}'] = cell_value23  # δU(+)II, %
+            output_sheet[f'AA{row_index}'] = cell_value22  # δU(−)II, %
+
+
+            output_sheet[f'AC{row_index}'] = Protocol_Num  # Порядковый номер протокола
 
             row_index += 1
 
