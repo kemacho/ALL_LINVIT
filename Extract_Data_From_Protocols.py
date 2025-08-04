@@ -32,7 +32,8 @@ def process_files(action):
     """
     Обрабатывает выбранные файлы, используя заранее известный индекс листа.
     """
-    global cell_value1, cell_value2, cell_value3, cell_value4, cell_value4_1, cell_value5, cell_value6, cell_value7, cell_value8, cell_value10, cell_value10_1, cell_value9, cell_value12, cell_value13, cell_value14, cell_value11, cell_value15, cell_value16, cell_value17, cell_value18, cell_value19, cell_value20, cell_value21, cell_value23, cell_value22
+    global cell_value1, cell_value2, cell_value3, cell_value4, cell_value4_1, cell_value5, cell_value6, cell_value7, cell_value8, cell_value10, cell_value10_1, cell_value9, cell_value12, cell_value13, cell_value14, cell_value11, cell_value15, cell_value16, cell_value17, cell_value18, cell_value19, cell_value20, cell_value21, cell_value23, cell_value22, cell_value18_1, cell_value19_1, cell_value25, cell_value26, cell_value27, cell_value24
+
     update_status("Начало обработки файлов...")  # Обновление статуса
 
     if not file_paths:
@@ -110,10 +111,10 @@ def process_files(action):
             sheet5 = workbook['3ф-4пр'] if '3ф-4пр' in workbook.sheetnames else None
 
             # Проверка альтернативных названий листов
-            if sheet2 is None and 'Протокол-3пр' in workbook.sheetnames:
+            if sheet2 is None or sheet2.sheet_state != 'visible' and 'Протокол-3пр' in workbook.sheetnames:
                 sheet2 = workbook['Протокол-3пр']
 
-            if sheet3 is None and 'Записи-3пр' in workbook.sheetnames:
+            if sheet3 is None or sheet3.sheet_state != 'visible' and 'Записи-3пр' in workbook.sheetnames:
                 sheet3 = workbook['Записи-3пр']
 
             # Установка значений по умолчанию для отсутствующих листов
@@ -138,6 +139,9 @@ def process_files(action):
                 cell_value6 = "---"
                 cell_value16 = "---"
                 cell_value17 = "---"
+                cell_value25 = "---"
+                cell_value26 = "---"
+                cell_value27 = "---"
 
             if sheet3 is None:
                 missing_sheets.append("Записи")
@@ -148,6 +152,8 @@ def process_files(action):
                 missing_sheets.append("ПКЭ")
                 cell_value18 = "---"
                 cell_value19 = "---"
+                cell_value18_1 = "---"
+                cell_value19_1 = "---"
 
             if sheet5 is None:
                 missing_sheets.append("3ф-4пр")
@@ -155,6 +161,7 @@ def process_files(action):
                 cell_value21 = "---"
                 cell_value22 = "---"
                 cell_value23 = "---"
+                cell_value24 = "---"
 
             # Вывод предупреждения об отсутствующих листах
             if missing_sheets:
@@ -180,8 +187,10 @@ def process_files(action):
                         break
 
             if sheet3 is not None:
-                cell_value8 = sheet3['AK6'].value  # Место в схеме
-                cell_value13 = sheet3['U9'].value  # Центр питания
+                cell_value8 = sheet3['AK6'].value    # Место в схеме
+                cell_value13 = sheet3['U9'].value    # Центр питания
+                cell_value24 = sheet3['BZ37'].value  # Эксперт протокол
+
 
 
             if cell_value8 is None:
@@ -206,6 +215,10 @@ def process_files(action):
                     cell_value11 = sheet2['BE35'].value  # Заводской номер СИ
                     cell_value15 = sheet2['CD35'].value  # Поверка СИ
 
+                    cell_value25 = str(sheet2['AI2'].value) + str(sheet2['A3'].value) # Наименование заказчик испытаний
+                    cell_value26 = str(sheet2['AI4'].value) + str(sheet2['A5'].value) # Юридический адрес
+                    cell_value27 = str(sheet2['R21'].value) + str(sheet2['A22'].value)  # Адрес
+
                     cell_value5 = format_date(sheet2['M25'].value)  # Начало испытаний
                     cell_value6 = format_date(sheet2['M26'].value)  # Окончание испытаний
 
@@ -218,6 +231,8 @@ def process_files(action):
                 if sheet4 is not None:
                     cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
                     cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+                    cell_value18_1 = sheet4['G7'].value  # Начало интервала наибольших нагрузок 2
+                    cell_value19_1 = sheet4['H7'].value  # Конец интервала наибольших нагрузок 2
 
                 if sheet5 is not None:
                     cell_value20 = sheet5['BE16'].value  # δU(−)I, %
@@ -237,6 +252,10 @@ def process_files(action):
                     cell_value11 = sheet2['BE32'].value  # Заводской номер СИ
                     cell_value15 = sheet2['CD32'].value  # Поверка СИ
 
+                    cell_value25 = str(sheet2['AI2'].value) + str(sheet2['A3'].value) # Наименование заказчик испытаний
+                    cell_value26 = str(sheet2['AI4'].value) + str(sheet2['A5'].value) # Юридический адрес
+                    cell_value27 = str(sheet2['R21'].value) + str(sheet2['A22'].value)  # Адрес
+
                     cell_value5 = format_date(sheet2['M22'].value)  # Начало испытаний
                     cell_value6 = format_date(sheet2['M23'].value)  # Окончание испытаний
 
@@ -249,6 +268,8 @@ def process_files(action):
                 if sheet4 is not None:
                     cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
                     cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+                    cell_value18_1 = sheet4['G7'].value  # Начало интервала наибольших нагрузок 2
+                    cell_value19_1 = sheet4['H7'].value  # Конец интервала наибольших нагрузок 2
 
                 if sheet5 is not None:
                     cell_value20 = sheet5['BE16'].value  # δU(−)I, %
@@ -268,6 +289,10 @@ def process_files(action):
                     cell_value11 = sheet2['BE34'].value  # Заводской номер СИ
                     cell_value15 = sheet2['CD34'].value  # Поверка СИ
 
+                    cell_value25 = str(sheet2['AI2'].value) + str(sheet2['A3'].value) # Наименование заказчик испытаний
+                    cell_value26 = str(sheet2['AI4'].value) + str(sheet2['A5'].value) # Юридический адрес
+                    cell_value27 = str(sheet2['R21'].value) + str(sheet2['A22'].value)  # Адрес
+
                     cell_value5 = format_date(sheet2['M24'].value)  # Начало испытаний
                     cell_value6 = format_date(sheet2['M25'].value)  # Окончание испытаний
 
@@ -280,6 +305,8 @@ def process_files(action):
                 if sheet4 is not None:
                     cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
                     cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+                    cell_value18_1 = sheet4['G7'].value  # Начало интервала наибольших нагрузок 2
+                    cell_value19_1 = sheet4['H7'].value  # Конец интервала наибольших нагрузок 2
 
                 if sheet5 is not None:
                     cell_value20 = sheet5['BE16'].value  # δU(−)I, %
@@ -299,6 +326,10 @@ def process_files(action):
                     cell_value11 = sheet2['BE36'].value  # Заводской номер СИ
                     cell_value15 = sheet2['CD36'].value  # Поверка СИ
 
+                    cell_value25 = str(sheet2['AI2'].value) + str(sheet2['A3'].value) # Наименование заказчик испытаний
+                    cell_value26 = str(sheet2['AI4'].value) + str(sheet2['A5'].value) # Юридический адрес
+                    cell_value27 = str(sheet2['R21'].value) + str(sheet2['A22'].value)  # Адрес
+
                     cell_value5 = format_date(sheet2['M26'].value)  # Начало испытаний
                     cell_value6 = format_date(sheet2['M27'].value)  # Окончание испытаний
 
@@ -311,6 +342,8 @@ def process_files(action):
                 if sheet4 is not None:
                     cell_value18 = sheet4['G6'].value  # Начало интервала наибольших нагрузок
                     cell_value19 = sheet4['H6'].value  # Конец интервала наибольших нагрузок
+                    cell_value18_1 = sheet4['G7'].value  # Начало интервала наибольших нагрузок 2
+                    cell_value19_1 = sheet4['H7'].value  # Конец интервала наибольших нагрузок 2
 
                 if sheet5 is not None:
                     cell_value20 = sheet5['BE16'].value  # δU(−)I, %
@@ -346,15 +379,20 @@ def process_files(action):
             output_sheet[f'S{row_index}'] = cell_value17  # dU(+)
             output_sheet[f'T{row_index}'] = cell_value18  # Начало интервала наибольших нагрузок 1
             output_sheet[f'U{row_index}'] = cell_value19  # Конец интервала наибольших нагрузок 1
-
-
+            output_sheet[f'V{row_index}'] = cell_value18_1  # Начало интервала наибольших нагрузок 1
+            output_sheet[f'W{row_index}'] = cell_value19_1  # Конец интервала наибольших нагрузок 1
             output_sheet[f'X{row_index}'] = cell_value21  # δU(+)I, %
             output_sheet[f'Y{row_index}'] = cell_value20  # δU(−)I, %
             output_sheet[f'Z{row_index}'] = cell_value23  # δU(+)II, %
             output_sheet[f'AA{row_index}'] = cell_value22  # δU(−)II, %
 
+            output_sheet[f'AE{row_index}'] = cell_value24  #
+            output_sheet[f'AB{row_index}'] = cell_value25  #
+            output_sheet[f'AC{row_index}'] = cell_value26  #
+            output_sheet[f'AD{row_index}'] = cell_value27  #
 
-            output_sheet[f'AC{row_index}'] = Protocol_Num  # Порядковый номер протокола
+
+            output_sheet[f'AG{row_index}'] = Protocol_Num  # Порядковый номер протокола
 
             row_index += 1
 
