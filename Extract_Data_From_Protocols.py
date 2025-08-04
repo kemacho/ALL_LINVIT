@@ -103,6 +103,7 @@ def process_files(action):
             workbook = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
             worksheets = workbook.sheetnames
 
+
             # Проверка существования всех листов
             sheet1 = workbook['Титул'] if 'Титул' in workbook.sheetnames else None
             sheet2 = workbook['Протокол'] if 'Протокол' in workbook.sheetnames else None
