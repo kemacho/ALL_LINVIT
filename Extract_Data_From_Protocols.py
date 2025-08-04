@@ -28,6 +28,7 @@ def format_date(date_value):
         return str(date_value or "")
 
 
+
 def process_files(action):
     """
     Обрабатывает выбранные файлы, используя заранее известный индекс листа.
@@ -101,6 +102,7 @@ def process_files(action):
             update_status(f"Обработка файла {i + 1} из {total_files}: {os.path.basename(file_path)}")
 
             workbook = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
+
             worksheets = workbook.sheetnames
 
 
@@ -110,6 +112,13 @@ def process_files(action):
             sheet3 = workbook['Записи'] if 'Записи' in workbook.sheetnames else None
             sheet4 = workbook['ПКЭ'] if 'ПКЭ' in workbook.sheetnames else None
             sheet5 = workbook['3ф-4пр'] if '3ф-4пр' in workbook.sheetnames else None
+
+            def get_combined_value(base_cell, check_cell):
+
+                if check_cell != "None":
+                    return base_cell + check_cell
+                else:
+                    return base_cell
 
             # Проверка альтернативных названий листов
             if sheet2 is None or sheet2.sheet_state != 'visible' and 'Протокол-3пр' in workbook.sheetnames:
@@ -216,9 +225,9 @@ def process_files(action):
                     cell_value11 = sheet2['BE35'].value  # Заводской номер СИ
                     cell_value15 = sheet2['CD35'].value  # Поверка СИ
 
-                    cell_value25 = str(sheet2['AI2'].value) + str(sheet2['A3'].value) # Наименование заказчик испытаний
-                    cell_value26 = str(sheet2['AI4'].value) + str(sheet2['A5'].value) # Юридический адрес
-                    cell_value27 = str(sheet2['R21'].value) + str(sheet2['A22'].value)  # Адрес
+                    cell_value25 = get_combined_value(str(sheet2['AI2'].value), str(sheet2['A3'].value))
+                    cell_value26 = get_combined_value(str(sheet2['AI4'].value), str(sheet2['A5'].value))
+                    cell_value27 = get_combined_value(str(sheet2['R21'].value), str(sheet2['A22'].value))
 
                     cell_value5 = format_date(sheet2['M25'].value)  # Начало испытаний
                     cell_value6 = format_date(sheet2['M26'].value)  # Окончание испытаний
@@ -253,9 +262,9 @@ def process_files(action):
                     cell_value11 = sheet2['BE32'].value  # Заводской номер СИ
                     cell_value15 = sheet2['CD32'].value  # Поверка СИ
 
-                    cell_value25 = str(sheet2['AI2'].value) + str(sheet2['A3'].value) # Наименование заказчик испытаний
-                    cell_value26 = str(sheet2['AI4'].value) + str(sheet2['A5'].value) # Юридический адрес
-                    cell_value27 = str(sheet2['R21'].value) + str(sheet2['A22'].value)  # Адрес
+                    cell_value25 = str(sheet2['A2'].value)
+                    cell_value26 = str(sheet2['A3'].value)
+                    cell_value27 = str(sheet2['A19'].value)
 
                     cell_value5 = format_date(sheet2['M22'].value)  # Начало испытаний
                     cell_value6 = format_date(sheet2['M23'].value)  # Окончание испытаний
@@ -290,9 +299,9 @@ def process_files(action):
                     cell_value11 = sheet2['BE34'].value  # Заводской номер СИ
                     cell_value15 = sheet2['CD34'].value  # Поверка СИ
 
-                    cell_value25 = str(sheet2['AI2'].value) + str(sheet2['A3'].value) # Наименование заказчик испытаний
-                    cell_value26 = str(sheet2['AI4'].value) + str(sheet2['A5'].value) # Юридический адрес
-                    cell_value27 = str(sheet2['R21'].value) + str(sheet2['A22'].value)  # Адрес
+                    cell_value25 = get_combined_value(str(sheet2['AI2'].value), str(sheet2['A3'].value))
+                    cell_value26 = get_combined_value(str(sheet2['AI4'].value), str(sheet2['A5'].value))
+                    cell_value27 = get_combined_value(str(sheet2['R21'].value), str(sheet2['A22'].value))
 
                     cell_value5 = format_date(sheet2['M24'].value)  # Начало испытаний
                     cell_value6 = format_date(sheet2['M25'].value)  # Окончание испытаний
@@ -327,9 +336,9 @@ def process_files(action):
                     cell_value11 = sheet2['BE36'].value  # Заводской номер СИ
                     cell_value15 = sheet2['CD36'].value  # Поверка СИ
 
-                    cell_value25 = str(sheet2['AI2'].value) + str(sheet2['A3'].value) # Наименование заказчик испытаний
-                    cell_value26 = str(sheet2['AI4'].value) + str(sheet2['A5'].value) # Юридический адрес
-                    cell_value27 = str(sheet2['R21'].value) + str(sheet2['A22'].value)  # Адрес
+                    cell_value25 = get_combined_value(str(sheet2['AI2'].value), str(sheet2['A3'].value))
+                    cell_value26 = get_combined_value(str(sheet2['AI4'].value), str(sheet2['A5'].value))
+                    cell_value27 = get_combined_value(str(sheet2['R21'].value), str(sheet2['A22'].value))
 
                     cell_value5 = format_date(sheet2['M26'].value)  # Начало испытаний
                     cell_value6 = format_date(sheet2['M27'].value)  # Окончание испытаний
