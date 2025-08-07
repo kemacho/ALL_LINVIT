@@ -127,6 +127,9 @@ def process_files(action):
             if sheet3 is None or sheet3.sheet_state != 'visible' and 'Записи-3пр' in workbook.sheetnames:
                 sheet3 = workbook['Записи-3пр']
 
+            if sheet4 is None and 'ПКЭ 32144' in workbook.sheetnames:
+                sheet4 = workbook['ПКЭ 32144']
+
             # Установка значений по умолчанию для отсутствующих листов
             missing_sheets = []
 
