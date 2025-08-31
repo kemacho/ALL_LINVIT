@@ -365,7 +365,7 @@ def process_files(action):
                     cell_value23 = sheet5['BE27'].value  # δU(+)II, %
 
 
-            if cell_value4_1 is not None:
+            if str(cell_value4_1) is not None:
                 cell_value4 = str(cell_value4) + ' ' + str(cell_value4_1)
 
             if cell_value9 is not None:
