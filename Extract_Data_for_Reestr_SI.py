@@ -102,6 +102,26 @@ def process_files(action):
             Check2 = str(sheet2['AG30'].value)
             Check3 = str(sheet2['AG32'].value)
             Check4 = str(sheet2['AG33'].value)
+            Check5 = str(sheet2['AG35'].value)
+
+
+            if 'Тип СИ' in Check5:
+
+                cell_value1 = sheet2['BE36'].value               # Заводской номер 1
+                cell_value2 = sheet2['AG36'].value               # Тип СИ 1
+                cell_value3 = sheet2['A24'].value                # Место нахождения СИ (регион)
+                cell_value4 = sheet1['A31'].value                # Наименование организации, владельца пунктов контроля КЭ
+                cell_value4_1 = sheet1['A32'].value
+                if cell_value4_1 is None:
+                    cell_value4_1 = ''
+                cell_value5 = format_date(sheet2['M27'].value)   # Дата передачи СИ (начало испытаний)
+                cell_value6 = format_date(sheet2['M28'].value)   # Дата возврата СИ (окончание испытаний)
+                cell_value7 = sheet3['BZ38'].value               # Ответственный за прием / возврат СИ (измерения провел)
+                cell_value8 = sheet2['I23'].value               # Место установки
+                cell_value9 = sheet1['BC25'].value               # Номер протокола
+                cell_value10 = sheet2['AG37'].value              # Тип СИ 2
+                cell_value10_1 = sheet2['BE37'].value            # Заводской номер 2
+
 
             if 'Тип СИ' in Check4:
 
@@ -167,8 +187,8 @@ def process_files(action):
                 cell_value10 = sheet2['AG36'].value              # Тип СИ 2
                 cell_value10_1 = sheet2['BE36'].value            # Заводской номер 2
 
-            PorNum0 = cell_value9.split('/')
-            PorNum = PorNum0[0] + ',' + PorNum0[1]
+            #PorNum0 = cell_value9.split('/')
+            #PorNum = PorNum0[0] + ',' + PorNum0[1]
 
             # Запись данных в первый лист
             output_sheet[f'C{row_index}'] = cell_value1
@@ -184,7 +204,7 @@ def process_files(action):
             output_sheet[f'O{row_index}'] = cell_value8
             output_sheet[f'P{row_index}'] = cell_value9
             output_sheet[f'Q{row_index}'] = str(cell_value10) + ' Зав.№: ' + str(cell_value10_1)
-            output_sheet[f'S{row_index}'] = PorNum
+            #output_sheet[f'S{row_index}'] = PorNum
 
             # Запись данных во второй лист
             output_sheet1[f'C{row_index1}'] = cell_value10_1
@@ -200,7 +220,7 @@ def process_files(action):
             output_sheet1[f'O{row_index1}'] = cell_value8
             output_sheet1[f'P{row_index1}'] = cell_value9
             output_sheet1[f'Q{row_index1}'] = str(cell_value2) + ' Зав.№: ' + str(cell_value1)
-            output_sheet1[f'S{row_index1}'] = PorNum
+            #output_sheet1[f'S{row_index1}'] = PorNum
 
             row_index += 1
             row_index1 += 1
