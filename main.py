@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QUrl, QThread, Signal, QTimer
 from PySide6.QtGui import QDesktopServices, QKeyEvent, QFont, QMouseEvent
 
-ARCHIVE_PATH = Path(r"\\192.168.34.9\линвит\ПОЛЬЗОВАТЕЛИ\USER49\!АРХИВ")
+ARCHIVE_PATH = Path(r"\\192.168.34.9\линвит\ОБЩИЕ ДОКУМЕНТЫ\ЛИНВИТ\20. Сертификаты ЛИНВИТ\СЕРТИФИКАТЫ")
 
 
 class CustomTreeView(QTreeView):

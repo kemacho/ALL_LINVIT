@@ -1,4 +1,3 @@
-# file_renamer_dnd.py
 import sys
 import os
 import re
@@ -186,6 +185,21 @@ class DocumentSelector(QWidget):
         self.case_number_edit.setPlaceholderText("Например: 534")
         self.case_number_edit.textChanged.connect(self.update_document_preview)
         case_layout.addWidget(self.case_number_edit)
+
+        # Кнопки для изменения номера дела
+        self.btn_decrease = QPushButton("−")
+        self.btn_decrease.setFixedWidth(30)
+        self.btn_decrease.clicked.connect(self.decrease_case_number)
+        self.btn_decrease.setToolTip("Уменьшить номер дела на 1")
+
+        self.btn_increase = QPushButton("+")
+        self.btn_increase.setFixedWidth(30)
+        self.btn_increase.clicked.connect(self.increase_case_number)
+        self.btn_increase.setToolTip("Увеличить номер дела на 1")
+
+        case_layout.addWidget(self.btn_decrease)
+        case_layout.addWidget(self.btn_increase)
+        case_layout.addStretch()
         layout.addLayout(case_layout)
 
         # Группа с чекбоксами документов
@@ -221,6 +235,39 @@ class DocumentSelector(QWidget):
 
         # Загружаем первоначальный список документов
         self.update_document_list()
+
+    def decrease_case_number(self):
+        """Уменьшает номер дела на 1"""
+        current_text = self.case_number_edit.text().strip()
+        clean_number = re.sub(r'\D', '', current_text)
+
+        if clean_number:
+            try:
+                number = int(clean_number)
+                if number > 1:  # Не позволяем номеру быть меньше 1
+                    self.case_number_edit.setText(str(number - 1))
+            except ValueError:
+                # Если не удалось преобразовать в число, устанавливаем 1
+                self.case_number_edit.setText("1")
+        else:
+            # Если поле пустое, устанавливаем 1
+            self.case_number_edit.setText("1")
+
+    def increase_case_number(self):
+        """Увеличивает номер дела на 1"""
+        current_text = self.case_number_edit.text().strip()
+        clean_number = re.sub(r'\D', '', current_text)
+
+        if clean_number:
+            try:
+                number = int(clean_number)
+                self.case_number_edit.setText(str(number + 1))
+            except ValueError:
+                # Если не удалось преобразовать в число, устанавливаем 1
+                self.case_number_edit.setText("1")
+        else:
+            # Если поле пустое, устанавливаем 1
+            self.case_number_edit.setText("1")
 
     def update_document_list(self):
         """Обновляет список чекбоксов в соответствии с выбранным типом"""
@@ -363,16 +410,39 @@ class FileRenamerApp(QWidget):
         main_layout.addLayout(right_frame)
         layout.addLayout(main_layout)
 
-        # Кнопки действий
+        # Кнопки действий (улучшенный UI)
         action_layout = QHBoxLayout()
-        self.btn_preview = QPushButton("Показать соответствие (превью)")
+        action_layout.setSpacing(15)
+        action_layout.setContentsMargins(20, 15, 20, 15)
+
+        self.btn_preview = QPushButton("Показать превью")
+        self.btn_preview.setFixedHeight(36)
+        self.btn_preview.setFixedWidth(150)
         self.btn_preview.clicked.connect(self.show_preview)
-        self.btn_rename = QPushButton("Переименовать")
+
+        self.btn_decrease_main = QPushButton("← Предыдущее дело")
+        self.btn_decrease_main.setFixedWidth(150)
+        self.btn_decrease_main.clicked.connect(self.document_selector.decrease_case_number)
+
+        self.btn_increase_main = QPushButton("Следующее дело →")
+        self.btn_increase_main.setFixedWidth(150)
+        self.btn_increase_main.clicked.connect(self.document_selector.increase_case_number)
+
+        # Большая кнопка переименования
+        self.btn_rename = QPushButton("🚀 Переименовать файлы")
+        self.btn_rename.setStyleSheet("font-weight: bold; font-size: 16px; padding: 10px 25px;")
+        self.btn_rename.setFixedHeight(48)
+        self.btn_rename.setFixedWidth(260)
         self.btn_rename.clicked.connect(self.rename_files)
+
+        action_layout.addStretch()
         action_layout.addWidget(self.btn_preview)
+        action_layout.addWidget(self.btn_decrease_main)
+        action_layout.addWidget(self.btn_increase_main)
         action_layout.addWidget(self.btn_rename)
         action_layout.addStretch()
         layout.addLayout(action_layout)
+
 
         # Предупреждение
         warning_frame = QFrame()
