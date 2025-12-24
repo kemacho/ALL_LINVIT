@@ -1,18 +1,20 @@
 import sys
 import os
 import re
+import json
 from typing import List, Dict
 from PySide6.QtWidgets import (
     QApplication, QWidget, QPushButton, QVBoxLayout, QFileDialog,
     QLabel, QListWidget, QMessageBox, QHBoxLayout, QFrame, QAbstractItemView,
-    QCheckBox, QGroupBox, QLineEdit, QComboBox, QScrollArea
+    QCheckBox, QGroupBox, QLineEdit, QComboBox, QScrollArea, QDialog,
+    QPlainTextEdit, QDialogButtonBox
 )
 from PySide6.QtCore import Qt
 
-VALID_EXTENSIONS = {'.pdf', '.docx'}
+VALID_EXTENSIONS = {'.pdf', '.docx', '.doc', '.jpg', '.png'}
 
-# База данных документов для каждого типа (с номерами и форматами как в примере)
-DOCUMENT_TYPES: Dict[str, List[str]] = {
+# --- Стандартные настройки (Заводские) ---
+DEFAULT_RULES: Dict[str, List[str]] = {
     "СИ": [
         "01. ОС-{номер} - Распоряжение по заявке",
         "02. ОС-{номер} - Решение по заявке",
@@ -20,7 +22,7 @@ DOCUMENT_TYPES: Dict[str, List[str]] = {
         "02.2 ОС-{номер} - Вопросник по АСП СИ",
         "03. ОС-{номер} - Заключение ОМТД",
         "04. ОС-{номер} - Акт выбора ПК",
-        "04.1 ОС-{номер} - Направление-заявка СИ"
+        "04.1 ОС-{номер} - Направление-заявка СИ",
         "05. ОС-{номер} - Программа СИ",
         "06. ОС-{номер} - Заключение протоколы СИ",
         "07. ОС-{номер} - Программа АСП",
@@ -45,11 +47,7 @@ DOCUMENT_TYPES: Dict[str, List[str]] = {
         "08. ИК-{номер} - Программа АСП ИК №1",
         "09. ИК-{номер} - Акт АСП ИК №1",
         "10. ИК-{номер} - Акт по ИК №1",
-        "11.1 ИК-{номер} - Решение по ИК №1 (подтверждение)",
-        "11.2 ИК-{номер} - Решение по ИК №1 (приостановка)",
-        "11.3 ИК-{номер} - Решение по ИК №1 (прекращение)",
-        "12. ИК-{номер} - Решение по ИК №1 (возобновление)",
-        "13. ИК-{номер} - Решение по ИК №1 (отмена)"
+        "11.1 ИК-{номер} - Решение по ИК №1 (подтверждение)"
     ],
     "ИК-2": [
         "01. ИК-{номер} - Распоряжение ИК №2",
@@ -66,17 +64,137 @@ DOCUMENT_TYPES: Dict[str, List[str]] = {
         "08. ИК-{номер} - Программа АСП ИК №2",
         "09. ИК-{номер} - Акт АСП ИК №2",
         "10. ИК-{номер} - Акт по ИК №2",
-        "11.1 ИК-{номер} - Решение по ИК №2 (подтверждение)",
-        "11.2 ИК-{номер} - Решение по ИК №2 (приостановка)",
-        "11.3 ИК-{номер} - Решение по ИК №2 (прекращение)",
-        "12. ИК-{номер} - Решение по ИК №2 (возобновление)",
-        "13. ИК-{номер} - Решение по ИК №2 (отмена)"
+        "11.1 ИК-{номер} - Решение по ИК №2 (подтверждение)"
     ]
 }
 
 
+class RuleManager:
+    """Класс для управления сохранением и загрузкой правил в JSON"""
+    FILENAME = "rules.json"
+
+    def __init__(self):
+        self.rules = self.load_rules()
+
+    def load_rules(self) -> Dict[str, List[str]]:
+        if not os.path.exists(self.FILENAME):
+            return DEFAULT_RULES.copy()
+        try:
+            with open(self.FILENAME, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                # Простая валидация
+                if isinstance(data, dict) and all(isinstance(v, list) for v in data.values()):
+                    return data
+                return DEFAULT_RULES.copy()
+        except Exception:
+            return DEFAULT_RULES.copy()
+
+    def save_rules(self):
+        try:
+            with open(self.FILENAME, 'w', encoding='utf-8') as f:
+                json.dump(self.rules, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            print(f"Ошибка сохранения правил: {e}")
+
+    def reset_to_defaults(self):
+        self.rules = DEFAULT_RULES.copy()
+        self.save_rules()
+
+    def get_types(self):
+        return list(self.rules.keys())
+
+    def get_rules_for(self, doc_type):
+        return self.rules.get(doc_type, [])
+
+    def update_rules_for(self, doc_type, new_list):
+        self.rules[doc_type] = new_list
+        self.save_rules()
+
+
+class RulesEditorDialog(QDialog):
+    """Окно редактирования шаблонов"""
+
+    def __init__(self, rule_manager: RuleManager, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Редактор шаблонов документов")
+        self.resize(600, 500)
+        self.rule_manager = rule_manager
+        self.current_type = "СИ"
+
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+
+        # Выбор типа для редактирования
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(QLabel("Выберите тип пакета:"))
+        self.type_combo = QComboBox()
+        self.type_combo.addItems(self.rule_manager.get_types())
+        self.type_combo.currentTextChanged.connect(self.load_type_to_editor)
+        top_layout.addWidget(self.type_combo)
+        layout.addLayout(top_layout)
+
+        layout.addWidget(
+            QLabel("Список шаблонов (каждый с новой строки):\nИспользуйте {номер} для подстановки номера дела."))
+
+        # Редактор текста
+        self.editor = QPlainTextEdit()
+        layout.addWidget(self.editor)
+
+        # Кнопки
+        btn_layout = QHBoxLayout()
+
+        self.btn_reset = QPushButton("Сбросить все на заводские")
+        self.btn_reset.setStyleSheet("color: red;")
+        self.btn_reset.clicked.connect(self.reset_defaults)
+
+        self.btn_save = QPushButton("Сохранить изменения")
+        self.btn_save.clicked.connect(self.save_current_changes)
+
+        self.btn_close = QPushButton("Закрыть")
+        self.btn_close.clicked.connect(self.accept)
+
+        btn_layout.addWidget(self.btn_reset)
+        btn_layout.addStretch()
+        btn_layout.addWidget(self.btn_save)
+        btn_layout.addWidget(self.btn_close)
+
+        layout.addLayout(btn_layout)
+        self.setLayout(layout)
+
+        # Загружаем начальное состояние
+        self.load_type_to_editor(self.type_combo.currentText())
+
+    def load_type_to_editor(self, type_name):
+        """Загружает список строк в текстовое поле"""
+        # Сначала сохраним текущее состояние (если переключились)
+        # self.save_current_changes_internal() # Можно раскомментировать для автосохранения при переключении
+
+        self.current_type = type_name
+        rules = self.rule_manager.get_rules_for(type_name)
+        text = "\n".join(rules)
+        self.editor.setPlainText(text)
+
+    def save_current_changes(self):
+        """Сохраняет текст из редактора в менеджер"""
+        text = self.editor.toPlainText()
+        # Разбиваем на строки и убираем пустые
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+        self.rule_manager.update_rules_for(self.current_type, lines)
+        QMessageBox.information(self, "Сохранено", f"Шаблоны для '{self.current_type}' обновлены!")
+
+    def reset_defaults(self):
+        reply = QMessageBox.question(self, "Сброс", "Вы уверены? Все ваши изменения шаблонов будут потеряны.",
+                                     QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.rule_manager.reset_to_defaults()
+            self.load_type_to_editor(self.current_type)
+            QMessageBox.information(self, "Сброс", "Настройки возвращены к заводским.")
+
+
 def unique_path(path: str) -> str:
-    """Если путь существует — добавить суффикс ' (копия N)' перед расширением."""
     if not os.path.exists(path):
         return path
     base, ext = os.path.splitext(path)
@@ -89,15 +207,15 @@ def unique_path(path: str) -> str:
 
 
 class DropListWidget(QListWidget):
-    """QListWidget с корректным обработчиком внешнего drag&drop."""
-
     def __init__(self, parent=None, role="dest"):
         super().__init__(parent)
-        self.role = role  # "dest" или "source"
+        self.role = role
         self.setAcceptDrops(True)
-        self.setDragEnabled(False)
+        self.setDragEnabled(True)  # Разрешаем драг
         self.setDropIndicatorShown(True)
-        self.setDragDropMode(QAbstractItemView.DropOnly)
+
+        # Разрешаем внутреннее перемещение (Reordering)
+        self.setDragDropMode(QAbstractItemView.InternalMove)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
 
         self.default_style = """
@@ -117,68 +235,79 @@ class DropListWidget(QListWidget):
         """
         self.setStyleSheet(self.default_style)
 
-    # При перетаскивании — принять, если есть URLs (файлы/папки)
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
             self.setStyleSheet(self.highlight_style)
         else:
-            event.ignore()
+            # Для внутреннего перемещения
+            super().dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
         else:
-            event.ignore()
+            super().dragMoveEvent(event)
 
     def dragLeaveEvent(self, event):
         self.setStyleSheet(self.default_style)
+        super().dragLeaveEvent(event)
 
     def dropEvent(self, event):
         self.setStyleSheet(self.default_style)
-        if not event.mimeData().hasUrls():
-            event.ignore()
-            return
 
-        urls = event.mimeData().urls()
-        paths = [u.toLocalFile() for u in urls if u.isLocalFile()]
+        # Если это файлы извне
+        if event.mimeData().hasUrls():
+            urls = event.mimeData().urls()
+            paths = [u.toLocalFile() for u in urls if u.isLocalFile()]
 
-        folders = [p for p in paths if os.path.isdir(p)]
-        files = [p for p in paths if os.path.isfile(p)]
+            folders = [p for p in paths if os.path.isdir(p)]
+            files = [p for p in paths if os.path.isfile(p)]
 
-        if folders:
-            # Если бросили папку(и) — возьмём первую и установим как папку
-            folder = folders[0]
-            self.parent().set_folder(folder, self.role)
-        elif files:
-            # Добавляем только выбранные файлы как "индивидуальные файлы"
-            self.parent().add_individual_files(files, self.role)
+            if folders:
+                self.parent().set_folder(folders[0], self.role)
+            elif files:
+                self.parent().add_individual_files(files, self.role)
 
-        event.acceptProposedAction()
+            event.acceptProposedAction()
+        else:
+            # Если это внутреннее перемещение строк
+            super().dropEvent(event)
+            # После перемещения нужно обновить внутренний список файлов в родителе
+            self.parent().sync_list_order()
 
 
 class DocumentSelector(QWidget):
-    """Виджет для выбора документов через чекбоксы"""
-
-    def __init__(self, parent=None):
+    def __init__(self, rule_manager: RuleManager, parent=None):
         super().__init__(parent)
+        self.rule_manager = rule_manager
         self.checkboxes = []
         self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout()
 
-        # Выбор типа документа
+        # Верхняя панель: Тип + Кнопка настроек
+        top_bar = QHBoxLayout()
+
         type_layout = QHBoxLayout()
         type_layout.addWidget(QLabel("Тип дела:"))
         self.doc_type_combo = QComboBox()
-        self.doc_type_combo.addItems(["СИ", "ИК-1", "ИК-2"])
+        self.doc_type_combo.addItems(self.rule_manager.get_types())
         self.doc_type_combo.currentTextChanged.connect(self.update_document_list)
         type_layout.addWidget(self.doc_type_combo)
-        type_layout.addStretch()
-        layout.addLayout(type_layout)
 
-        # Поле для ввода номера дела (только цифры)
+        top_bar.addLayout(type_layout)
+        top_bar.addStretch()
+
+        # Кнопка настроек
+        self.btn_settings = QPushButton("⚙️ Редактор шаблонов")
+        self.btn_settings.clicked.connect(self.open_settings)
+        top_bar.addWidget(self.btn_settings)
+
+        layout.addLayout(top_bar)
+
+        # Поле для ввода номера дела
         case_layout = QHBoxLayout()
         case_layout.addWidget(QLabel("Номер дела (только цифры):"))
         self.case_number_edit = QLineEdit()
@@ -186,38 +315,36 @@ class DocumentSelector(QWidget):
         self.case_number_edit.textChanged.connect(self.update_document_preview)
         case_layout.addWidget(self.case_number_edit)
 
-        # Кнопки для изменения номера дела
         self.btn_decrease = QPushButton("−")
         self.btn_decrease.setFixedWidth(30)
         self.btn_decrease.clicked.connect(self.decrease_case_number)
-        self.btn_decrease.setToolTip("Уменьшить номер дела на 1")
 
         self.btn_increase = QPushButton("+")
         self.btn_increase.setFixedWidth(30)
         self.btn_increase.clicked.connect(self.increase_case_number)
-        self.btn_increase.setToolTip("Увеличить номер дела на 1")
 
         case_layout.addWidget(self.btn_decrease)
         case_layout.addWidget(self.btn_increase)
         case_layout.addStretch()
         layout.addLayout(case_layout)
 
-        # Группа с чекбоксами документов
-        self.doc_group = QGroupBox("Выберите документы для переименования:")
+        # Группа с чекбоксами
+        self.doc_group = QGroupBox("Выберите документы:")
         doc_layout = QVBoxLayout()
 
-        # Scroll area для чекбоксов
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFixedHeight(600)
+        scroll.setFixedHeight(500)
 
         self.checkbox_widget = QWidget()
         self.checkbox_layout = QVBoxLayout(self.checkbox_widget)
+        # Прижимаем чекбоксы к верху
+        self.checkbox_layout.setAlignment(Qt.AlignTop)
 
         scroll.setWidget(self.checkbox_widget)
         doc_layout.addWidget(scroll)
 
-        # Кнопки выбора всех/очистки
+        # Кнопки выбора
         btn_layout = QHBoxLayout()
         self.select_all_btn = QPushButton("Выбрать все")
         self.select_all_btn.clicked.connect(self.select_all)
@@ -232,504 +359,251 @@ class DocumentSelector(QWidget):
         layout.addWidget(self.doc_group)
 
         self.setLayout(layout)
-
-        # Загружаем первоначальный список документов
         self.update_document_list()
 
-    def decrease_case_number(self):
-        """Уменьшает номер дела на 1"""
-        current_text = self.case_number_edit.text().strip()
-        clean_number = re.sub(r'\D', '', current_text)
+    def open_settings(self):
+        """Открывает окно редактирования шаблонов"""
+        dialog = RulesEditorDialog(self.rule_manager, self)
+        if dialog.exec():
+            # Если нажали закрыть, обновляем список в главном окне
+            self.update_document_list()
 
-        if clean_number:
-            try:
-                number = int(clean_number)
-                if number > 1:  # Не позволяем номеру быть меньше 1
-                    self.case_number_edit.setText(str(number - 1))
-            except ValueError:
-                # Если не удалось преобразовать в число, устанавливаем 1
-                self.case_number_edit.setText("1")
+    def decrease_case_number(self):
+        current = self.get_case_number()
+        if current:
+            val = int(current)
+            if val > 1:
+                self.case_number_edit.setText(str(val - 1))
         else:
-            # Если поле пустое, устанавливаем 1
             self.case_number_edit.setText("1")
 
     def increase_case_number(self):
-        """Увеличивает номер дела на 1"""
-        current_text = self.case_number_edit.text().strip()
-        clean_number = re.sub(r'\D', '', current_text)
-
-        if clean_number:
-            try:
-                number = int(clean_number)
-                self.case_number_edit.setText(str(number + 1))
-            except ValueError:
-                # Если не удалось преобразовать в число, устанавливаем 1
-                self.case_number_edit.setText("1")
-        else:
-            # Если поле пустое, устанавливаем 1
-            self.case_number_edit.setText("1")
+        current = self.get_case_number()
+        val = int(current) if current else 0
+        self.case_number_edit.setText(str(val + 1))
 
     def update_document_list(self):
-        """Обновляет список чекбоксов в соответствии с выбранным типом"""
-        # Очищаем старые чекбоксы
+        # Очистка
         for i in reversed(range(self.checkbox_layout.count())):
-            widget = self.checkbox_layout.itemAt(i).widget()
-            if widget:
-                widget.deleteLater()
-
+            w = self.checkbox_layout.itemAt(i).widget()
+            if w: w.deleteLater()
         self.checkboxes = []
+
         doc_type = self.doc_type_combo.currentText()
-        documents = DOCUMENT_TYPES.get(doc_type, [])
+        # Загружаем из менеджера правил
+        documents = self.rule_manager.get_rules_for(doc_type)
 
-        for i, doc_template in enumerate(documents, 1):
-            # Показываем шаблон без номера дела
-            checkbox = QCheckBox(doc_template.replace("{номер}", "XXX"))
-            checkbox.template = doc_template  # сохраняем шаблон
-            self.checkbox_layout.addWidget(checkbox)
-            self.checkboxes.append(checkbox)
+        for doc_template in documents:
+            cb = QCheckBox(doc_template)
+            cb.template = doc_template
+            self.checkbox_layout.addWidget(cb)
+            self.checkboxes.append(cb)
 
-        # Обновляем предпросмотр с текущим номером дела
         self.update_document_preview()
 
     def update_document_preview(self):
-        """Обновляет отображение названий документов с текущим номером дела"""
-        case_number = self.case_number_edit.text().strip()
-        # Оставляем только цифры
-        clean_number = re.sub(r'\D', '', case_number)
-
-        for checkbox in self.checkboxes:
-            template = getattr(checkbox, 'template', '')
-            if template:
-                if clean_number:
-                    display_name = template.replace("{номер}", clean_number)
-                else:
-                    display_name = template.replace("{номер}", "XXX")
-                checkbox.setText(display_name)
+        case_number = self.get_case_number()
+        for cb in self.checkboxes:
+            tpl = getattr(cb, 'template', '')
+            if tpl:
+                display = tpl.replace("{номер}", case_number if case_number else "XXX")
+                cb.setText(display)
 
     def select_all(self):
-        """Выбирает все чекбоксы"""
-        for checkbox in self.checkboxes:
-            checkbox.setChecked(True)
+        for cb in self.checkboxes: cb.setChecked(True)
 
     def clear_all(self):
-        """Снимает выделение со всех чекбоксов"""
-        for checkbox in self.checkboxes:
-            checkbox.setChecked(False)
+        for cb in self.checkboxes: cb.setChecked(False)
 
     def get_selected_documents(self):
-        """Возвращает список выбранных документов с подставленным номером дела"""
         selected = []
         case_number = self.get_case_number()
-
-        for checkbox in self.checkboxes:
-            if checkbox.isChecked():
-                template = getattr(checkbox, 'template', '')
-                if template and case_number:
-                    doc_name = template.replace("{номер}", case_number)
-                    selected.append(doc_name)
-
+        for cb in self.checkboxes:
+            if cb.isChecked():
+                tpl = getattr(cb, 'template', '')
+                if tpl:
+                    selected.append(tpl.replace("{номер}", case_number if case_number else "XXX"))
         return selected
 
     def get_case_number(self):
-        """Возвращает очищенный номер дела (только цифры)"""
-        case_number = self.case_number_edit.text().strip()
-        return re.sub(r'\D', '', case_number)
+        txt = self.case_number_edit.text().strip()
+        return re.sub(r'\D', '', txt)
 
 
 class FileRenamerApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Переименование файлов по шаблону")
-        self.resize(950, 650)
-        self.setAcceptDrops(True)
+        self.setWindowTitle("Мастер переименования файлов")
+        self.resize(1000, 700)
 
-        # Папки (если пользователь выбрал папку)
+        # Инициализация менеджера правил
+        self.rule_manager = RuleManager()
+
         self.destination_folder = ""
-        self.source_folder = ""
-
-        # Списки "индивидуальных" файлов (полные пути)
-        self.individual_dest_files: List[str] = []
-        self.individual_source_files: List[str] = []
+        # Теперь храним список файлов как список кортежей (имя, полный_путь) или просто полных путей
+        # Для упрощения Reordering будем хранить пути в widget, а здесь только исходный источник
+        self.current_files_map = {}  # path -> original_path
 
         self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout()
 
-        # Верхняя подсказка
-        top_label = QLabel(
-            "Перетащи папку или файлы в левый список. Файлы должны быть отсортированы поо порядку их имен слева.\n"
-            "В правой части выберите тип документов, введите номер дела и отметьте нужные документы."
-        )
-        top_label.setWordWrap(True)
-        layout.addWidget(top_label)
+        # Инструкция
+        layout.addWidget(QLabel("1. Перетащите файлы слева (можно менять их порядок перетаскиванием).\n"
+                                "2. Выберите тип (СИ/ИК) и настройте шаблоны при необходимости справа.\n"
+                                "3. Введите номер и нажмите переименовать."))
 
-        # Кнопки выбора папок
-        btn_layout = QHBoxLayout()
-        self.btn_select_dest = QPushButton("Выбрать папку с файлами для переименования")
-        self.btn_select_dest.clicked.connect(lambda: self.select_folder("dest"))
-        self.btn_select_dest.setToolTip("Выбрать папку с файлами, которые нужно переименовать")
-        btn_layout.addWidget(self.btn_select_dest)
-        btn_layout.addStretch()
-        layout.addLayout(btn_layout)
-
-        # Статус строка с текущими путями
-        self.status_label = QLabel("Папка с файлами: не задана")
-        layout.addWidget(self.status_label)
-
-        # Основная область с списком файлов и выбором документов
+        # Главная область
         main_layout = QHBoxLayout()
 
-        # Левый список - файлы для переименования
+        # ЛЕВАЯ ЧАСТЬ
         left_frame = QVBoxLayout()
-        self.label_dest = QLabel("Файлы для переименования (должны быть отсортированы):")
+        left_frame.addWidget(QLabel("Файлы (Drag&Drop для сортировки):"))
 
-        # Кнопки управления файлами
-        file_buttons_layout = QHBoxLayout()
-        self.btn_clear_all = QPushButton("Очистить все файлы")
-        self.btn_clear_all.clicked.connect(self.clear_all_files)
-        self.btn_remove_selected = QPushButton("Удалить выбранные")
-        self.btn_remove_selected.clicked.connect(self.remove_selected_files)
-
-        file_buttons_layout.addWidget(self.btn_clear_all)
-        file_buttons_layout.addWidget(self.btn_remove_selected)
-        file_buttons_layout.addStretch()
-
-        left_frame.addWidget(self.label_dest)
-        left_frame.addLayout(file_buttons_layout)
+        btns_file = QHBoxLayout()
+        self.btn_clear = QPushButton("Очистить")
+        self.btn_clear.clicked.connect(self.clear_files)
+        self.btn_del_sel = QPushButton("Удалить выбранные")
+        self.btn_del_sel.clicked.connect(self.remove_selected)
+        btns_file.addWidget(self.btn_clear)
+        btns_file.addWidget(self.btn_del_sel)
+        left_frame.addLayout(btns_file)
 
         self.list_dest = DropListWidget(self, role="dest")
         left_frame.addWidget(self.list_dest)
-
-        # Правая часть - выбор документов
-        right_frame = QVBoxLayout()
-        self.document_selector = DocumentSelector()
-        right_frame.addWidget(self.document_selector)
-
         main_layout.addLayout(left_frame)
+
+        # ПРАВАЯ ЧАСТЬ
+        right_frame = QVBoxLayout()
+        self.document_selector = DocumentSelector(self.rule_manager)
+        right_frame.addWidget(self.document_selector)
         main_layout.addLayout(right_frame)
+
         layout.addLayout(main_layout)
 
-        # Кнопки действий (улучшенный UI)
+        # НИЖНЯЯ ПАНЕЛЬ
         action_layout = QHBoxLayout()
-        action_layout.setSpacing(15)
-        action_layout.setContentsMargins(20, 15, 20, 15)
 
-        self.btn_preview = QPushButton("Показать превью")
-        self.btn_preview.setFixedHeight(36)
-        self.btn_preview.setFixedWidth(150)
+        self.btn_preview = QPushButton("Предпросмотр")
         self.btn_preview.clicked.connect(self.show_preview)
 
-        self.btn_decrease_main = QPushButton("← Предыдущее дело")
-        self.btn_decrease_main.setFixedWidth(150)
-        self.btn_decrease_main.clicked.connect(self.document_selector.decrease_case_number)
-
-        self.btn_increase_main = QPushButton("Следующее дело →")
-        self.btn_increase_main.setFixedWidth(150)
-        self.btn_increase_main.clicked.connect(self.document_selector.increase_case_number)
-
-        # Большая кнопка переименования
-        self.btn_rename = QPushButton("🚀 Переименовать файлы")
-        self.btn_rename.setStyleSheet("font-weight: bold; font-size: 16px; padding: 10px 25px;")
-        self.btn_rename.setFixedHeight(48)
-        self.btn_rename.setFixedWidth(260)
+        self.btn_rename = QPushButton("🚀 Переименовать")
+        self.btn_rename.setStyleSheet("font-weight: bold; font-size: 14pt; padding: 10px; background-color: #d1e7dd;")
         self.btn_rename.clicked.connect(self.rename_files)
 
-        action_layout.addStretch()
         action_layout.addWidget(self.btn_preview)
-        action_layout.addWidget(self.btn_decrease_main)
-        action_layout.addWidget(self.btn_increase_main)
-        action_layout.addWidget(self.btn_rename)
         action_layout.addStretch()
+        action_layout.addWidget(self.btn_rename)
+
         layout.addLayout(action_layout)
-
-
-        # Предупреждение
-        warning_frame = QFrame()
-        warning_frame.setFrameShape(QFrame.Box)
-        warning_frame.setStyleSheet("QFrame { border: 2px solid darkred; background:#fff6f6; }")
-        w_layout = QVBoxLayout()
-        w_label = QLabel(
-            "⚠️ ВАЖНО: Файлы должны быть отсортированы по порядку их имен слева. Проверьте превью перед переименованием!")
-        w_label.setWordWrap(True)
-        w_layout.addWidget(w_label)
-        warning_frame.setLayout(w_layout)
-        layout.addWidget(warning_frame)
-
         self.setLayout(layout)
 
-    def clear_all_files(self):
-        """Очищает все файлы из списка"""
-        if self.list_dest.count() == 0:
-            return
-
-        reply = QMessageBox.question(
-            self,
-            "Очистка файлов",
-            "Вы уверены, что хотите удалить все файлы из списка?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-
-        if reply == QMessageBox.Yes:
-            self.destination_folder = ""
-            self.individual_dest_files = []
-            self.update_file_list()
-            self.update_status()
-
-    def remove_selected_files(self):
-        """Удаляет выбранные файлы из списка"""
-        selected_items = self.list_dest.selectedItems()
-        if not selected_items:
-            QMessageBox.information(self, "Нет выбора", "Выберите файлы для удаления из списка.")
-            return
-
-        if self.individual_dest_files:
-            # Удаляем выбранные файлы из списка индивидуальных файлов
-            selected_names = {item.text() for item in selected_items}
-            self.individual_dest_files = [
-                f for f in self.individual_dest_files
-                if os.path.basename(f) not in selected_names
-            ]
-        elif self.destination_folder:
-            # При работе с папкой просто очищаем выделение
-            # (не удаляем физические файлы, только из интерфейса)
-            for item in selected_items:
-                self.list_dest.takeItem(self.list_dest.row(item))
-
-        self.update_file_list()
-        self.update_status()
-
-    def select_folder(self, role):
-        folder = QFileDialog.getExistingDirectory(self, "Выберите папку")
-        if folder:
-            self.set_folder(folder, role)
-
-    def set_folder(self, folder: str, role: str):
-        if role == "dest":
-            self.destination_folder = folder
-            self.individual_dest_files = []
-        else:
-            self.source_folder = folder
-            self.individual_source_files = []
-
-        self.update_file_list()
-        self.update_status()
-
-    def add_individual_files(self, paths: List[str], role: str):
-        clean = [p for p in paths if os.path.isfile(p) and os.path.splitext(p)[1].lower() in VALID_EXTENSIONS]
-        if not clean:
-            QMessageBox.warning(self, "Файлы не добавлены", "Нет допустимых файлов для добавления (pdf/docx).")
-            return
-        if role == "dest":
-            self.destination_folder = ""
-            # Добавляем только выбранные файлы
-            self.individual_dest_files = clean
-        else:
-            self.source_folder = ""
-            self.individual_source_files = clean
-
-        self.update_file_list()
-        self.update_status()
-
-    def update_file_list(self):
-        """Обновление списка файлов с сортировкой по номерам"""
+    def set_folder(self, folder, role):
         self.list_dest.clear()
-        if self.individual_dest_files:
-            # Сортируем файлы по номеру в начале имени
-            sorted_files = self.sort_files_by_number(self.individual_dest_files)
-            for p in sorted_files:
-                self.list_dest.addItem(os.path.basename(p))
-        elif self.destination_folder:
-            items = self.get_filtered_files(self.destination_folder)
-            self.list_dest.addItems(items)
+        self.current_files_map = {}
 
-    def sort_files_by_number(self, file_paths: List[str]) -> List[str]:
-        """Сортирует файлы по номеру в начале имени"""
+        files = [f for f in os.listdir(folder) if os.path.splitext(f)[1].lower() in VALID_EXTENSIONS]
+        # Сортировка по числам в имени
+        files.sort(key=lambda x: (self.extract_number(x), x))
 
-        def extract_number(filename):
-            # Ищем число в начале имени файла
-            match = re.match(r'^(\d+)', os.path.basename(filename))
-            return int(match.group(1)) if match else 9999
+        for f in files:
+            full_path = os.path.join(folder, f)
+            self.list_dest.addItem(f)
+            self.current_files_map[f] = full_path
 
-        return sorted(file_paths, key=extract_number)
+    def add_individual_files(self, paths, role):
+        # Если добавляем файлы, а не папку, просто докидываем в список
+        # Сортируем добавляемую пачку
+        paths.sort(key=lambda x: (self.extract_number(os.path.basename(x)), x))
 
-    def update_status(self):
-        if self.destination_folder:
-            status = f"Папка с файлами: {self.destination_folder} ({self.list_dest.count()} шт.)"
-        elif self.individual_dest_files:
-            status = f"Файлы: индивидуально ({len(self.individual_dest_files)} шт.)"
-        else:
-            status = "Файлы: не заданы"
+        for p in paths:
+            if os.path.splitext(p)[1].lower() in VALID_EXTENSIONS:
+                name = os.path.basename(p)
+                # Избегаем дублей визуально, если нужно (здесь разрешим, но лучше проверять)
+                self.list_dest.addItem(name)
+                self.current_files_map[name] = p
 
-        self.status_label.setText(status)
+    def extract_number(self, text):
+        match = re.search(r'(\d+)', text)
+        return int(match.group(1)) if match else 999999
 
-    def get_filtered_files(self, folder: str) -> List[str]:
-        """Получает файлы и сортирует их по номерам"""
-        files = [
-            f for f in os.listdir(folder)
-            if os.path.isfile(os.path.join(folder, f)) and os.path.splitext(f)[1].lower() in VALID_EXTENSIONS
-        ]
-        # Сортируем по номеру в начале имени
-        return self.sort_files_by_number([os.path.join(folder, f) for f in files])
+    def sync_list_order(self):
+        """Метод вызывается ListWidget после перетаскивания строк"""
+        pass  # Логика уже в визуальном порядке элементов list_dest
 
-    def displayed_full_paths(self, list_widget: QListWidget, folder: str, individual_files: List[str]) -> List[str]:
-        """Получает полные пути к файлам в порядке отображения"""
-        displayed = [list_widget.item(i).text() for i in range(list_widget.count())]
-        if individual_files:
-            fulls = []
-            used = set()
-            for name in displayed:
-                found = None
-                for p in individual_files:
-                    if os.path.basename(p) == name and p not in used:
-                        found = p
-                        break
-                if found:
-                    fulls.append(found)
-                    used.add(found)
-                else:
-                    fulls.append(os.path.join(folder, name) if folder else name)
-            return fulls
-        else:
-            return [os.path.join(folder, name) for name in displayed]
+    def clear_files(self):
+        self.list_dest.clear()
+        self.current_files_map = {}
+
+    def remove_selected(self):
+        for item in self.list_dest.selectedItems():
+            self.list_dest.takeItem(self.list_dest.row(item))
+            # Из map не удаляем, так как имя файла уникально для пути, пусть висит в памяти
+
+    def get_ordered_files(self):
+        files = []
+        for i in range(self.list_dest.count()):
+            name = self.list_dest.item(i).text()
+            if name in self.current_files_map:
+                files.append(self.current_files_map[name])
+        return files
 
     def show_preview(self):
-        """Показывает превью переименования"""
-        if self.list_dest.count() == 0:
-            QMessageBox.warning(self, "Пустой список", "Список файлов для переименования пуст.")
-            return
+        files = self.get_ordered_files()
+        if not files: return
 
-        case_number = self.document_selector.get_case_number()
-        if not case_number:
-            QMessageBox.warning(self, "Не указан номер дела", "Введите номер дела (только цифры) для продолжения.")
-            return
-
-        selected_docs = self.document_selector.get_selected_documents()
-        if not selected_docs:
-            QMessageBox.warning(self, "Не выбраны документы", "Выберите хотя бы один документ для переименования.")
-            return
-
-        dest_fulls = self.displayed_full_paths(self.list_dest, self.destination_folder, self.individual_dest_files)
-
-        if len(dest_fulls) != len(selected_docs):
-            QMessageBox.warning(self, "Несоответствие количества",
-                                f"Количество файлов ({len(dest_fulls)}) не соответствует количеству выбранных документов ({len(selected_docs)}).")
+        docs = self.document_selector.get_selected_documents()
+        if not docs:
+            QMessageBox.warning(self, "Внимание", "Не выбраны документы справа!")
             return
 
         lines = []
-        limit = min(20, len(dest_fulls))
+        limit = min(len(files), len(docs), 20)
         for i in range(limit):
-            old_name = os.path.basename(dest_fulls[i])
-            new_name = f"{selected_docs[i]}{os.path.splitext(dest_fulls[i])[1]}"
-            lines.append(f"{old_name}\n  → {new_name}")
+            old = os.path.basename(files[i])
+            ext = os.path.splitext(files[i])[1]
+            new = docs[i] + ext
+            lines.append(f"{old}  ->  {new}")
 
-        if len(dest_fulls) > limit:
-            lines.append(f"... и ещё {len(dest_fulls) - limit} файлов")
-
-        QMessageBox.information(self, "Превью переименований", "\n\n".join(lines))
+        QMessageBox.information(self, "Превью",
+                                "\n".join(lines) + f"\n\nВсего файлов: {len(files)}, Шаблонов: {len(docs)}")
 
     def rename_files(self):
-        """Основная операция переименования"""
-        if self.list_dest.count() == 0:
-            QMessageBox.warning(self, "Пустой список", "Список файлов для переименования пуст.")
+        files = self.get_ordered_files()
+        docs = self.document_selector.get_selected_documents()
+
+        if not files or not docs:
+            QMessageBox.warning(self, "Ошибка", "Нет файлов или не выбраны шаблоны.")
             return
 
-        case_number = self.document_selector.get_case_number()
-        if not case_number:
-            QMessageBox.warning(self, "Не указан номер дела", "Введите номер дела (только цифры) для продолжения.")
-            return
+        if len(files) != len(docs):
+            reply = QMessageBox.question(self, "Несовпадение",
+                                         f"Файлов: {len(files)}\nШаблонов: {len(docs)}\n\nПродолжить (лишнее будет проигнорировано)?",
+                                         QMessageBox.Yes | QMessageBox.No)
+            if reply != QMessageBox.Yes:
+                return
 
-        selected_docs = self.document_selector.get_selected_documents()
-        if not selected_docs:
-            QMessageBox.warning(self, "Не выбраны документы", "Выберите хотя бы один документ для переименования.")
-            return
+        count = 0
+        limit = min(len(files), len(docs))
 
-        dest_fulls = self.displayed_full_paths(self.list_dest, self.destination_folder, self.individual_dest_files)
+        for i in range(limit):
+            old_path = files[i]
+            folder = os.path.dirname(old_path)
+            ext = os.path.splitext(old_path)[1]
+            new_name = docs[i] + ext
+            new_path = os.path.join(folder, new_name)
 
-        if len(dest_fulls) != len(selected_docs):
-            QMessageBox.critical(self, "Ошибка",
-                                 f"Количество файлов ({len(dest_fulls)}) не соответствует количеству выбранных документов ({len(selected_docs)}).")
-            return
-
-        # Собираем пары (old_full, new_full)
-        pairs = []
-        for i, old_full in enumerate(dest_fulls):
-            old_ext = os.path.splitext(old_full)[1]
-            new_name = f"{selected_docs[i]}{old_ext}"
-            new_full = os.path.join(os.path.dirname(old_full), new_name)
-            pairs.append((old_full, new_full))
-
-        # Предварительный просмотр с подтверждением
-        preview_lines = [f"{os.path.basename(a)}\n  → {os.path.basename(b)}" for a, b in pairs[:10]]
-        if len(pairs) > 10:
-            preview_lines.append(f"... и ещё {len(pairs) - 10} файлов")
-        preview_text = "\n\n".join(preview_lines)
-
-        reply = QMessageBox.question(self, "Подтвердите переименование",
-                                     f"Будет переименовано {len(pairs)} файлов. Превью:\n\n{preview_text}\n\nПродолжить?",
-                                     QMessageBox.Yes | QMessageBox.No,
-                                     QMessageBox.No)
-        if reply != QMessageBox.Yes:
-            return
-
-        # Выполняем переименование
-        errors = []
-        success_count = 0
-
-        for old_full, new_full in pairs:
             try:
-                if not os.path.exists(old_full):
-                    errors.append(f"Не найден исходный: {old_full}")
-                    continue
-
-                final_new = unique_path(new_full)
-                os.rename(old_full, final_new)
-                success_count += 1
-                QApplication.processEvents()
-
+                final_path = unique_path(new_path)
+                os.rename(old_path, final_path)
+                count += 1
             except Exception as e:
-                errors.append(f"Ошибка при переименовании {os.path.basename(old_full)}: {str(e)}")
+                print(f"Error renaming {old_path}: {e}")
 
-        # Показываем результат
-        if errors:
-            error_text = "\n".join(errors[:10])
-            if len(errors) > 10:
-                error_text += f"\n... и ещё {len(errors) - 10} ошибок"
-            QMessageBox.critical(self, "Частично завершено",
-                                 f"Успешно переименовано: {success_count} из {len(pairs)} файлов\n\nОшибки:\n{error_text}")
-        else:
-            QMessageBox.information(self, "Готово", f"Все {success_count} файлов успешно переименованы.")
-
-        # Обновляем интерфейс после операции
-        self.individual_dest_files = []
-        self.update_file_list()
-        self.update_status()
-
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event):
-        if event.mimeData().hasUrls():
-            new_files = []
-            for url in event.mimeData().urls():
-                path = url.toLocalFile()
-                if os.path.isfile(path):
-                    ext = os.path.splitext(path)[1].lower()
-                    if ext in VALID_EXTENSIONS:
-                        new_files.append(path)
-                elif os.path.isdir(path):
-                    # Если перетащили папку - устанавливаем ее как папку назначения
-                    self.set_folder(path, "dest")
-                    event.acceptProposedAction()
-                    return
-
-            if new_files:
-                self.add_individual_files(new_files, "dest")
-                event.acceptProposedAction()
+        QMessageBox.information(self, "Готово", f"Переименовано {count} файлов.")
+        self.list_dest.clear()
+        self.current_files_map = {}
 
 
 if __name__ == "__main__":
