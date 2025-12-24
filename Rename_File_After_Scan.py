@@ -551,7 +551,9 @@ class FileRenamerApp(QWidget):
 
     def show_preview(self):
         files = self.get_ordered_files()
-        if not files: return
+        if not files:
+            QMessageBox.warning(self, "Пусто", "Нет файлов для предпросмотра.")
+            return
 
         docs = self.document_selector.get_selected_documents()
         if not docs:
@@ -566,8 +568,23 @@ class FileRenamerApp(QWidget):
             new = docs[i] + ext
             lines.append(f"{old}  ->  {new}")
 
-        QMessageBox.information(self, "Превью",
-                                "\n".join(lines) + f"\n\nВсего файлов: {len(files)}, Шаблонов: {len(docs)}")
+        if len(files) > limit and len(docs) > limit:
+            lines.append(f"... и ещё {min(len(files), len(docs)) - limit} строк")
+
+        preview_text = "\n".join(lines) + f"\n\nВсего файлов: {len(files)}, Шаблонов: {len(docs)}"
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Превью переименований")
+        msg.setText(preview_text)
+
+        # Увеличиваем ширину окна за счёт ширины QLabel внутри
+        msg.setStyleSheet("""
+            QMessageBox QLabel {
+                min-width: 800px;
+            }
+        """)
+
+        msg.exec()
 
     def rename_files(self):
         files = self.get_ordered_files()
