@@ -618,7 +618,7 @@ class FileRenamerApp(QWidget):
             except Exception as e:
                 print(f"Error renaming {old_path}: {e}")
 
-        QMessageBox.information(self, "Готово", f"Переименовано {count} файлов.")
+        #QMessageBox.information(self, "Готово", f"Переименовано {count} файлов.")
         self.list_dest.clear()
         self.current_files_map = {}
 
