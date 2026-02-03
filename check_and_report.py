@@ -2,7 +2,8 @@ import os
 import glob
 import threading
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment
+from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.formatting.rule import CellIsRule
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QLineEdit, QPushButton, QComboBox, QProgressBar, QMessageBox, QFileDialog,
                                QTextEdit, QDialog, QFrame)
@@ -28,7 +29,7 @@ nameIK = ['1 Распоряжение', '2 Извещение',
 
 SI_TEMPLATES = {
     "Общий шаблон": ['1', '1', '1', '1', '1', '1', 'Any', '1', '1', '1', '1', '1', '2', 'Any'],
-    "Шаблон РЖД": ['2', '1', '1', '1', '1', '1', 'Any', '1', '1', '1', '1', '1', '2', 'Any']
+    "Шаблон РЖД": ['2', '1', '1', '1', '1', '1', 'Any', '1', '1', '1', '1', '2', '2', 'Any']
 }
 
 IK_TEMPLATES = {
@@ -85,7 +86,15 @@ class FolderProcessor(threading.Thread):
             self.signals.error.emit(str(e))
 
     def add_warning(self, pt, nm1, nm2):
-        self.warnings.append(f'Пожалуйста проверьте папку: {pt}, там находится {nm1} файла, вместо {nm2}')
+        try:
+            # Берем путь относительно корневой папки
+            relative_path = os.path.relpath(pt, self.inpath)
+            self.warnings.append(
+                f'Проверь: {relative_path}, там находится {nm1} файла, вместо {nm2}')
+        except:
+            # Если не получается вычислить относительный путь, используем только имя папки
+            folder_name = os.path.basename(pt)
+            self.warnings.append(f'Пожалуйста проверьте папку: {folder_name}, там находится {nm1} файла, вместо {nm2}')
 
     def process_folder_with_one_file(self, old_folder, contents, Pos_dest, Neg_dest):
         if len(contents) == 1 and old_folder != Pos_dest:
@@ -213,6 +222,9 @@ class FolderProcessor(threading.Thread):
             self.signals.warnings.emit(self.warnings)
 
     def create_excel_report(self):
+        from openpyxl.styles import PatternFill
+        from openpyxl.formatting.rule import FormulaRule
+
         wb = Workbook()
         if 'Sheet' in wb.sheetnames:
             wb.remove(wb['Sheet'])
@@ -222,6 +234,12 @@ class FolderProcessor(threading.Thread):
             'ИК-1': nameIK,
             'ИК-2': nameIK
         }
+
+        # Определяем цвета
+        green_fill = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
+        yellow_fill = PatternFill(start_color='FFEB9C', end_color='FFEB9C', fill_type='solid')
+        red_fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
+        gray_fill = PatternFill(start_color='D9D9D9', end_color='D9D9D9', fill_type='solid')
 
         for sheet_name, headers in sheets.items():
             ws = wb.create_sheet(title=sheet_name)
@@ -237,6 +255,7 @@ class FolderProcessor(threading.Thread):
                 cell.font = Font(bold=True)
                 cell.alignment = Alignment(wrap_text=True, horizontal='center', vertical='center')
 
+        # Сначала заполняем данные
         folder_names = os.listdir(self.inpath)
         for folder_name in folder_names:
             pathSI = os.path.join(self.inpath, folder_name, '0. СИ')
@@ -250,6 +269,48 @@ class FolderProcessor(threading.Thread):
             pathIK2 = os.path.join(self.inpath, folder_name, '2. ИК-2')
             if os.path.exists(pathIK2):
                 self.process_folder_for_excel(wb['ИК-2'], folder_name, pathIK2, nameIK)
+
+        # Теперь добавляем условное форматирование
+        for sheet_name in sheets.keys():
+            ws = wb[sheet_name]
+
+            # Определяем диапазон с данными
+            max_row = ws.max_row
+            if max_row <= 1:  # Только заголовок
+                continue
+
+            # Начинаем с колонки B (2), заканчиваем последней колонкой с данными
+            start_col = 2
+            end_col = len(nameSI) + 1 if sheet_name == 'СИ' else len(nameIK) + 1
+
+            # Преобразуем в буквы Excel
+            start_col_letter = chr(64 + start_col)
+            end_col_letter = chr(64 + end_col)
+
+            # Диапазон для форматирования (исключая заголовок)
+            data_range = f'{start_col_letter}2:{end_col_letter}{max_row}'
+
+
+            # Для ячеек со знаком "+"
+            formula1 = f'{start_col_letter}2="+"'  # Это шаблон, Excel сам адаптирует для каждой ячейки
+            ws.conditional_formatting.add(data_range,
+                                          FormulaRule(formula=[f'{start_col_letter}2="+"'],
+                                                      fill=green_fill))
+
+            # Для ячеек со знаком "+-"
+            ws.conditional_formatting.add(data_range,
+                                          FormulaRule(formula=[f'{start_col_letter}2="+-"'],
+                                                      fill=yellow_fill))
+
+            # Для ячеек со знаком "-"
+            ws.conditional_formatting.add(data_range,
+                                          FormulaRule(formula=[f'{start_col_letter}2="-"'],
+                                                      fill=red_fill))
+
+            # Для ячеек с текстом "Нет папки"
+            ws.conditional_formatting.add(data_range,
+                                          FormulaRule(formula=[f'{start_col_letter}2="Нет папки"'],
+                                                      fill=gray_fill))
 
         output_path = os.path.join(self.inpath, "results.xlsx")
         wb.save(output_path)
