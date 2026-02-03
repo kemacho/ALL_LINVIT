@@ -4,36 +4,59 @@ import threading
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QLineEdit, QPushButton, QComboBox, QProgressBar, QMessageBox, QFileDialog)
+                               QLineEdit, QPushButton, QComboBox, QProgressBar, QMessageBox, QFileDialog,
+                               QTextEdit, QDialog, QFrame)
 from PySide6.QtCore import Qt, Signal, QObject
 
 # Названия подпапок СИ
 nameSI = ['0 Заявка и приложение', '1 Распоряжение по заявке',
-    '2 Решение по заявке', '3 Заключения по ОМТД',
-    '4 Акт выбора ПК', '4.1 Направление-заявка',
-    '5 Протоколы СИ', '6 Заключение СИ',
-    '7 Программа АСП', '8 Акт АСП',
-    '9 Распоряжение на анализ', '10 Решение о выдаче',
-    '11 Сертификат', '12 Доп.материалы']
+          '2 Решение по заявке', '3 Заключения по ОМТД',
+          '4 Акт выбора ПК', '4.1 Направление-заявка',
+          '5 Протоколы СИ', '6 Заключение СИ',
+          '7 Программа АСП', '8 Акт АСП',
+          '9 Распоряжение на анализ', '10 Решение о выдаче',
+          '11 Сертификат', '12 Доп.материалы']
 
 # Названия подпапок ИК
 nameIK = ['1 Распоряжение', '2 Извещение',
-    '3 Программа ИК', '4 Акт по ОМТД',
-    '5 Акт выбора ПК', '5.1 Направление-заявка',
-    '6 Протоколы ИК', '7 Акт по испытаниям ИК',
-    '8 Программа АСП', '9 Акт АСП',
-    '10 Акт по результатам ИК', '11 Решение по ИК',
-    '12 Доп. материалы']
+          '3 Программа ИК', '4 Акт по ОМТД',
+          '5 Акт выбора ПК', '5.1 Направление-заявка',
+          '6 Протоколы ИК', '7 Акт по испытаниям ИК',
+          '8 Программа АСП', '9 Акт АСП',
+          '10 Акт по результатам ИК', '11 Решение по ИК',
+          '12 Доп. материалы']
 
 SI_TEMPLATES = {
-    "Шаблон РЖД": ['1', '1', '1', '1', '1', '1', 'Any', '1', '1', '1', '1', '1', '2', 'Any'],
-    "Общий шаблон": ['1', '1', '1', '1', '1', '1', 'Any', '1', '1', '1', '1', '1', '2', 'Any']
+    "Общий шаблон": ['1', '1', '1', '1', '1', '1', 'Any', '1', '1', '1', '1', '1', '2', 'Any'],
+    "Шаблон РЖД": ['2', '1', '1', '1', '1', '1', 'Any', '1', '1', '1', '1', '1', '2', 'Any']
 }
 
 IK_TEMPLATES = {
-    "Шаблон РЖД": ['1', '1', '1', '1', '1', '1', 'Any', '1', '1', '1', '1', '1', 'Any'],
-    "Общий шаблон": ['1', '1', '1', '1', '1', '1', 'Any', '1', '1', '1', '1', '1', 'Any']
+    "Общий шаблон": ['1', '1', '1', '1', '1', '1', 'Any', '1', '1', '1', '1', '1', 'Any'],
+    "Шаблон РЖД": ['1', '1', '1', '1', '1', '1', 'Any', '1', '1', '1', '1', '1', 'Any']
 }
+
+
+class WarningDialog(QDialog):
+    """Диалог для отображения предупреждений"""
+
+    def __init__(self, warnings, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Предупреждения")
+        self.setMinimumSize(500, 300)
+
+        layout = QVBoxLayout(self)
+
+        self.text_edit = QTextEdit()
+        self.text_edit.setReadOnly(True)
+        self.text_edit.setPlainText(warnings)
+
+        layout.addWidget(QLabel("Обратите внимание на следующие папки:"))
+        layout.addWidget(self.text_edit)
+
+        close_button = QPushButton("Закрыть")
+        close_button.clicked.connect(self.accept)
+        layout.addWidget(close_button)
 
 
 class WorkerSignals(QObject):
@@ -41,6 +64,7 @@ class WorkerSignals(QObject):
     message = Signal(str)
     finished = Signal(str)
     error = Signal(str)
+    warnings = Signal(list)  # Новый сигнал для предупреждений
 
 
 class FolderProcessor(threading.Thread):
@@ -50,7 +74,7 @@ class FolderProcessor(threading.Thread):
         self.fileqnt = fileqnt
         self.fileqnt_ik = fileqnt_ik
         self.signals = WorkerSignals()
-        self.worry = []
+        self.warnings = []  # Сохраняем предупреждения
 
     def run(self):
         try:
@@ -60,10 +84,8 @@ class FolderProcessor(threading.Thread):
         except Exception as e:
             self.signals.error.emit(str(e))
 
-    def worrymessage(self, pt, nm1, nm2):
-        self.worry.append(pt)
-        self.worry.append(nm1)
-        self.worry.append(nm2)
+    def add_warning(self, pt, nm1, nm2):
+        self.warnings.append(f'Пожалуйста проверьте папку: {pt}, там находится {nm1} файла, вместо {nm2}')
 
     def process_folder_with_one_file(self, old_folder, contents, Pos_dest, Neg_dest):
         if len(contents) == 1 and old_folder != Pos_dest:
@@ -72,7 +94,7 @@ class FolderProcessor(threading.Thread):
             os.rename(old_folder, Neg_dest)
         elif len(contents) > 1:
             os.rename(old_folder, Pos_dest)
-            self.worrymessage(old_folder, len(contents), '1')
+            self.add_warning(old_folder, len(contents), '1')
 
     def process_folder_with_four_files(self, old_folder, contents, Pos_dest, Neg_dest):
         if len(contents) == 4 and old_folder != Pos_dest:
@@ -81,7 +103,7 @@ class FolderProcessor(threading.Thread):
             os.rename(old_folder, Neg_dest)
         elif len(contents) > 4:
             os.rename(old_folder, Pos_dest)
-            self.worrymessage(old_folder, len(contents), '4')
+            self.add_warning(old_folder, len(contents), '4')
 
     def process_folder_with_any_files(self, old_folder, contents, Pos_dest, Neg_dest):
         if len(contents) > 0 and old_folder != Pos_dest:
@@ -90,7 +112,7 @@ class FolderProcessor(threading.Thread):
             os.rename(old_folder, Neg_dest)
         elif len(contents) > 20:
             os.rename(old_folder, Pos_dest)
-            self.worrymessage(old_folder, len(contents), 'возможно не так много')
+            self.add_warning(old_folder, len(contents), 'возможно не так много')
 
     def process_folder_with_two_files(self, old_folder, contents, Pos_dest, Norm_dest, Neg_dest):
         if len(contents) == 2 and old_folder != Pos_dest:
@@ -101,7 +123,7 @@ class FolderProcessor(threading.Thread):
             os.rename(old_folder, Neg_dest)
         elif len(contents) > 2:
             os.rename(old_folder, Pos_dest)
-            self.worrymessage(old_folder, len(contents), '2')
+            self.add_warning(old_folder, len(contents), '2')
 
     def check(self, FileQNT, old_folder, contents, Pos_dest, Norm_dest, Neg_dest):
         filtered_contents = [f for f in contents if f != "Thumbs.db"]
@@ -186,12 +208,9 @@ class FolderProcessor(threading.Thread):
             self.signals.progress.emit(progress)
             self.signals.message.emit(f"Обработано папок: {i + 1} из {total_folders}")
 
-        if self.worry:
-            worry_messages = []
-            for i in range(0, len(self.worry), 3):
-                msg = f'Пожалуйста проверьте папку: {self.worry[i]}, там находится {self.worry[i + 1]} файла, вместо {self.worry[i + 2]}'
-                worry_messages.append(msg)
-            self.signals.message.emit("\n".join(worry_messages))
+        # Отправляем предупреждения через сигнал
+        if self.warnings:
+            self.signals.warnings.emit(self.warnings)
 
     def create_excel_report(self):
         wb = Workbook()
@@ -268,118 +287,213 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Обработчик папок")
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(1000, 750)  # Увеличил для размещения всех элементов
 
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.layout = QVBoxLayout(self.central_widget)
 
-        # Выбор корневой папки
-        self.folder_frame = QWidget()
+        # Для хранения предупреждений
+        self.warnings_list = []
+
+        # Верхняя часть: выбор папки
+        self.folder_frame = QFrame()
+        self.folder_frame.setFrameStyle(QFrame.Panel | QFrame.Raised)
         self.folder_layout = QHBoxLayout(self.folder_frame)
+        self.folder_layout.setContentsMargins(10, 10, 10, 10)
 
         self.folder_label = QLabel("Корневая папка:")
+        self.folder_label.setFixedWidth(100)
         self.folder_entry = QLineEdit()
         self.folder_entry.setPlaceholderText("Выберите папку...")
         self.browse_button = QPushButton("Обзор")
+        self.browse_button.setFixedWidth(80)
         self.browse_button.clicked.connect(self.browse_folder)
 
         self.folder_layout.addWidget(self.folder_label)
         self.folder_layout.addWidget(self.folder_entry)
         self.folder_layout.addWidget(self.browse_button)
 
+        # Центральная часть: две вертикальные области (СИ и ИК)
+        self.center_frame = QWidget()
+        self.center_layout = QHBoxLayout(self.center_frame)
+        self.center_layout.setContentsMargins(5, 5, 5, 5)
+        self.center_layout.setSpacing(10)
+
+        # Левая область: СИ
+        self.si_frame = QFrame()
+        self.si_frame.setFrameStyle(QFrame.Panel | QFrame.Raised)
+        self.si_frame.setLineWidth(2)
+        self.si_layout = QVBoxLayout(self.si_frame)
+        self.si_layout.setContentsMargins(10, 10, 10, 10)
+        self.si_layout.setSpacing(5)
+
+        # Заголовок СИ
+        si_title = QLabel("СИ (Сертификационные испытания)")
+        si_title.setAlignment(Qt.AlignCenter)
+        si_title.setStyleSheet("font-weight: bold; font-size: 12pt; margin-bottom: 5px;")
+        self.si_layout.addWidget(si_title)
+
         # Выбор шаблона СИ
         self.template_si_frame = QWidget()
         self.template_si_layout = QHBoxLayout(self.template_si_frame)
+        self.template_si_layout.setContentsMargins(0, 0, 0, 10)
 
-        self.template_si_label = QLabel("Шаблон СИ:")
+        self.template_si_label = QLabel("Шаблон:")
+        self.template_si_label.setFixedWidth(60)
         self.template_si_combo = QComboBox()
-        self.template_si_combo.addItems(list(SI_TEMPLATES.keys()) + ["Пользовательский"])
-        self.template_si_combo.setCurrentText("Пользовательский")
-        self.template_si_combo.currentTextChanged.connect(self.apply_si_template)  # Автоматическое применение
+        self.template_si_combo.addItems(["Пользовательский"] + list(SI_TEMPLATES.keys()))
+        self.template_si_combo.setCurrentText("Общий шаблон")
+        self.template_si_combo.currentTextChanged.connect(self.apply_si_template)
 
         self.template_si_layout.addWidget(self.template_si_label)
         self.template_si_layout.addWidget(self.template_si_combo)
 
-        # Выбор шаблона ИК
-        self.template_ik_frame = QWidget()
-        self.template_ik_layout = QHBoxLayout(self.template_ik_frame)
+        self.si_layout.addWidget(self.template_si_frame)
 
-        self.template_ik_label = QLabel("Шаблон ИК:")
-        self.template_ik_combo = QComboBox()
-        self.template_ik_combo.addItems(list(IK_TEMPLATES.keys()) + ["Пользовательский"])
-        self.template_ik_combo.setCurrentText("Общий шаблон")  # Установка по умолчанию
-        self.template_ik_combo.currentTextChanged.connect(self.apply_ik_template)  # Автоматическое применение
-
-        self.template_ik_layout.addWidget(self.template_ik_label)
-        self.template_ik_layout.addWidget(self.template_ik_combo)
-
-        # Параметры СИ и ИК
-        self.params_frame = QWidget()
-        self.params_layout = QHBoxLayout(self.params_frame)
-
-        # СИ параметры
-        self.si_params_frame = QWidget()
-        self.si_params_layout = QVBoxLayout(self.si_params_frame)
-        self.si_label = QLabel("СИ:")
-        self.si_params_layout.addWidget(self.si_label)
+        # Параметры СИ - статический список
+        self.si_params_widget = QWidget()
+        self.si_params_layout = QVBoxLayout(self.si_params_widget)
+        self.si_params_layout.setContentsMargins(5, 5, 5, 5)
+        self.si_params_layout.setSpacing(2)  # Уменьшил расстояние между элементами
 
         self.si_combos = []
         options = ["1", "2", "4", "Any"]
 
-        for name in nameSI:
+        for i, name in enumerate(nameSI):
             frame = QWidget()
+            frame.setFixedHeight(30)  # Фиксированная высота для выравнивания
             layout = QHBoxLayout(frame)
-            label = QLabel(f"{name}:")
+            layout.setContentsMargins(5, 0, 5, 0)
+            layout.setSpacing(10)
+
+            label = QLabel(f"{name}")
+            label.setFixedWidth(180)  # Фиксированная ширина для выравнивания
             combo = QComboBox()
             combo.addItems(options)
-            combo.setCurrentText("1")
+            combo.setFixedWidth(80)  # Фиксированная ширина комбобоксов
+
             layout.addWidget(label)
+            layout.addStretch()
             layout.addWidget(combo)
             self.si_params_layout.addWidget(frame)
             self.si_combos.append(combo)
 
-        # ИК параметры
-        self.ik_params_frame = QWidget()
-        self.ik_params_layout = QVBoxLayout(self.ik_params_frame)
-        self.ik_label = QLabel("ИК:")
-        self.ik_params_layout.addWidget(self.ik_label)
+        # Добавляем растягивающий элемент в конец для выравнивания
+        self.si_params_layout.addStretch()
+
+        self.si_layout.addWidget(self.si_params_widget)
+
+        # Правая область: ИК
+        self.ik_frame = QFrame()
+        self.ik_frame.setFrameStyle(QFrame.Panel | QFrame.Raised)
+        self.ik_frame.setLineWidth(2)
+        self.ik_layout = QVBoxLayout(self.ik_frame)
+        self.ik_layout.setContentsMargins(10, 10, 10, 10)
+        self.ik_layout.setSpacing(5)
+
+        # Заголовок ИК
+        ik_title = QLabel("ИК (Инспекционный контроль)")
+        ik_title.setAlignment(Qt.AlignCenter)
+        ik_title.setStyleSheet("font-weight: bold; font-size: 12pt; margin-bottom: 5px;")
+        self.ik_layout.addWidget(ik_title)
+
+        # Выбор шаблона ИК
+        self.template_ik_frame = QWidget()
+        self.template_ik_layout = QHBoxLayout(self.template_ik_frame)
+        self.template_ik_layout.setContentsMargins(0, 0, 0, 10)
+
+        self.template_ik_label = QLabel("Шаблон:")
+        self.template_ik_label.setFixedWidth(60)
+        self.template_ik_combo = QComboBox()
+        self.template_ik_combo.addItems(["Пользовательский"] + list(IK_TEMPLATES.keys()))
+        self.template_ik_combo.setCurrentText("Общий шаблон")
+        self.template_ik_combo.currentTextChanged.connect(self.apply_ik_template)
+
+        self.template_ik_layout.addWidget(self.template_ik_label)
+        self.template_ik_layout.addWidget(self.template_ik_combo)
+
+        self.ik_layout.addWidget(self.template_ik_frame)
+
+        # Параметры ИК - статический список
+        self.ik_params_widget = QWidget()
+        self.ik_params_layout = QVBoxLayout(self.ik_params_widget)
+        self.ik_params_layout.setContentsMargins(5, 5, 5, 5)
+        self.ik_params_layout.setSpacing(2)  # Уменьшил расстояние между элементами
 
         self.ik_combos = []
 
-        for name in nameIK:
+        for i, name in enumerate(nameIK):
             frame = QWidget()
+            frame.setFixedHeight(30)  # Фиксированная высота для выравнивания
             layout = QHBoxLayout(frame)
-            label = QLabel(f"{name}:")
+            layout.setContentsMargins(5, 0, 5, 0)
+            layout.setSpacing(10)
+
+            label = QLabel(f"{name}")
+            label.setFixedWidth(180)  # Фиксированная ширина для выравнивания
             combo = QComboBox()
             combo.addItems(options)
-            combo.setCurrentText("1")
+            combo.setFixedWidth(80)  # Фиксированная ширина комбобоксов
+
             layout.addWidget(label)
+            layout.addStretch()
             layout.addWidget(combo)
             self.ik_params_layout.addWidget(frame)
             self.ik_combos.append(combo)
 
-        self.params_layout.addWidget(self.si_params_frame)
-        self.params_layout.addWidget(self.ik_params_frame)
+        # Добавляем растягивающий элемент в конец для выравнивания
+        self.ik_params_layout.addStretch()
 
-        # Прогресс и сообщения
+        self.ik_layout.addWidget(self.ik_params_widget)
+
+        # Добавляем обе области в центральный layout
+        self.center_layout.addWidget(self.si_frame)
+        self.center_layout.addWidget(self.ik_frame)
+
+        # Нижняя часть: прогресс, сообщения и кнопки
+        self.bottom_frame = QFrame()
+        self.bottom_layout = QVBoxLayout(self.bottom_frame)
+        self.bottom_layout.setContentsMargins(10, 10, 10, 10)
+
+        # Прогресс бар
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
+
+        # Сообщение
         self.message_label = QLabel()
         self.message_label.setAlignment(Qt.AlignCenter)
+        self.message_label.setFixedHeight(20)
 
-        # Кнопка запуска
+        # Кнопки
+        self.buttons_frame = QWidget()
+        self.buttons_layout = QHBoxLayout(self.buttons_frame)
+        self.buttons_layout.setContentsMargins(0, 10, 0, 0)
+
         self.start_button = QPushButton("Начать обработку")
+        self.start_button.setFixedHeight(35)
         self.start_button.clicked.connect(self.start_processing)
+
+        self.warnings_button = QPushButton("Показать предупреждения")
+        self.warnings_button.setFixedHeight(35)
+        self.warnings_button.clicked.connect(self.show_warnings)
+        self.warnings_button.setEnabled(False)
+
+        self.buttons_layout.addWidget(self.start_button)
+        self.buttons_layout.addWidget(self.warnings_button)
+
+        self.bottom_layout.addWidget(self.progress_bar)
+        self.bottom_layout.addWidget(self.message_label)
+        self.bottom_layout.addWidget(self.buttons_frame)
 
         # Добавляем все виджеты в основной layout
         self.layout.addWidget(self.folder_frame)
-        self.layout.addWidget(self.template_si_frame)
-        self.layout.addWidget(self.template_ik_frame)
-        self.layout.addWidget(self.params_frame)
-        self.layout.addWidget(self.progress_bar)
-        self.layout.addWidget(self.message_label)
-        self.layout.addWidget(self.start_button)
+        self.layout.addWidget(self.center_frame, 1)  # Растягиваем центральную часть
+        self.layout.addWidget(self.bottom_frame)
+
+        # Применяем шаблоны по умолчанию
+        self.apply_si_template()
+        self.apply_ik_template()
 
     def browse_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Выберите корневую папку")
@@ -416,12 +530,15 @@ class MainWindow(QMainWindow):
         self.progress_bar.setValue(0)
         self.message_label.setText("Подготовка к обработке...")
         self.start_button.setEnabled(False)
+        self.warnings_button.setEnabled(False)
+        self.warnings_list = []
 
         self.worker = FolderProcessor(folder_path, fileqnt, fileqnt_ik)
         self.worker.signals.progress.connect(self.update_progress)
         self.worker.signals.message.connect(self.update_message)
         self.worker.signals.finished.connect(self.processing_finished)
         self.worker.signals.error.connect(self.show_error)
+        self.worker.signals.warnings.connect(self.save_warnings)
         self.worker.start()
 
     def update_progress(self, value):
@@ -430,10 +547,23 @@ class MainWindow(QMainWindow):
     def update_message(self, message):
         self.message_label.setText(message)
 
+    def save_warnings(self, warnings):
+        self.warnings_list = warnings
+        if warnings:
+            self.warnings_button.setEnabled(True)
+
     def processing_finished(self, excel_path):
         self.start_button.setEnabled(True)
-        QMessageBox.information(self, "Готово",
-                                f"Обработка завершена!\nОтчет сохранен в:\n{excel_path}")
+        message = f"Обработка завершена!\nОтчет сохранен в:\n{excel_path}"
+        if self.warnings_list:
+            message += "\n\nЕсть предупреждения. Нажмите 'Показать предупреждения' для просмотра."
+        QMessageBox.information(self, "Готово", message)
+
+    def show_warnings(self):
+        if self.warnings_list:
+            warnings_text = "\n".join(self.warnings_list)
+            dialog = WarningDialog(warnings_text, self)
+            dialog.exec()
 
     def show_error(self, error_msg):
         self.start_button.setEnabled(True)
