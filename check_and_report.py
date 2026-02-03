@@ -4,6 +4,7 @@ import threading
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.formatting.rule import CellIsRule
+import datetime
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QLineEdit, QPushButton, QComboBox, QProgressBar, QMessageBox, QFileDialog,
                                QTextEdit, QDialog, QFrame)
@@ -312,7 +313,9 @@ class FolderProcessor(threading.Thread):
                                           FormulaRule(formula=[f'{start_col_letter}2="Нет папки"'],
                                                       fill=gray_fill))
 
-        output_path = os.path.join(self.inpath, "results.xlsx")
+        current_date = datetime.datetime.now().strftime("%d-%m-%Y")
+        filename = f"Отчет о содержимом ({current_date}).xlsx"
+        output_path = os.path.join(self.inpath, filename)
         wb.save(output_path)
         return output_path
 
